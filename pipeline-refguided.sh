@@ -6,19 +6,20 @@
 #       --> per-copy sequences appended as new columns of the subgenome matrix
 #       --> subgenome gene trees
 #
-# usage: bash pipeline-refguided.sh [design.txt] [ncpu] [outgroup]
+# usage: bash pipeline-refguided.sh [species.design] [ncpu] [outgroup]
 #
-# design.txt: 3 columns, no header, no comments:
-#   <sample_id>  <species_id>  <reference_species>
-#     sample_id  run accession; reads/<sample_id>_{1,2}.fastq.gz (see src/get_reads.sh)
-#     species_id label of this sample; its new columns are <species_id>_<copy>
+# species.design: 4 columns, no header, no comments:
+#   <run>  <species_id>  <reference_species>  <WGS|HybSeq>
+#     run        accession; reads/<run>_{1,2}.fastq.gz (see src/get_reads.sh)
+#     species_id label of this sample; its new columns are <species_id>_<subgenome>
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
+#     dtype      library type, printed with the log line (both types work here)
 #
 # requires on PATH: soi-wgdi, bwa, samtools; HybPiper via HYBPIPER (its bin dir) and
 # PYTHON (the interpreter that install needs -- python2 for HybPiper 1.2)
 set -eu
 
-design=${1:-design.txt}
+design=${1:-species.design}
 ncpu=${2:-8}
 outgroup=${3:-Theobroma_cacao}
 pre=pre-study
@@ -32,11 +33,11 @@ mkdir -p $out
 ##########################################################################
 ##### per sample: map, assemble, append, tree ############################
 ##########################################################################
-while read -r sample sp ref
+while read -r sample sp ref dtype
 do
 	[ -n "${sample:-}" ] || continue
 	echo
-	echo "########## $sp  (reference: $ref) ##########"
+	echo "########## $sp  (reference: $ref, $dtype) ##########"
 
 	##################################################################
 	##### 1. competitive mapping #####################################

@@ -6,18 +6,20 @@
 #       --> every sample gene assigned to a copy of the reference
 #       --> subgenome gene trees
 #
-# usage: bash pipeline-denovo.sh [design.txt] [ncpu] [outgroup]
+# usage: bash pipeline-denovo.sh [species.design] [ncpu] [outgroup]
 #
-# design.txt: same file as the reference-guided route, 3 columns, no header:
-#   <sample_id>  <species_id>  <reference_species>
-#     sample_id  reads/<sample_id>_filter_R{1,2}.fastq.gz
+# species.design: same file as the reference-guided route, 4 columns, no header:
+#   <run>  <species_id>  <reference_species>  <WGS|HybSeq>
+#     run        accession; reads/<run>_{1,2}.fastq.gz (see src/get_reads.sh)
 #     species_id label of this sample; its gene ids become <species_id>|g000001
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
+#     dtype      library type; only WGS lines are assembled here (HybSeq reads cover
+#                only the captured genes, so a genome-wide assembly of them is meaningless)
 #
 # requires on PATH: megahit, metaeuk, orthofinder, soi-wgdi
 set -eu
 
-design=${1:-design.txt}
+design=${1:-species.design}
 ncpu=${2:-8}
 outgroup=${3:-Theobroma_cacao}
 pre=pre-study
@@ -28,9 +30,10 @@ mkdir -p $out
 ##########################################################################
 ##### 1. de novo assembly ###############################################
 ##########################################################################
-while read -r sample sp ref
+while read -r sample sp ref dtype
 do
 	[ -n "${sample:-}" ] || continue
+	[ "$dtype" = "WGS" ] || { echo "== skip $sp: $dtype reads are not genome-wide, only route 1 applies"; continue; }
 	echo "########## $sp: assembly ##########"
 	##################################################################
 	##### megahit ####################################################
@@ -43,7 +46,7 @@ done < $design
 ##########################################################################
 ##### 2. gene models: MetaEuk, ids renumbered per sample ################
 ##########################################################################
-while read -r sample sp ref
+while read -r sample sp ref dtype
 do
 	[ -n "${sample:-}" ] || continue
 	echo "########## $sp: gene prediction ##########"
@@ -73,7 +76,7 @@ do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$ref.fasta
 done
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$outgroup.fasta
-while read -r sample sp ref
+while read -r sample sp ref dtype
 do
 	[ -n "${sample:-}" ] || continue
 	cp $out/$sp.pep $out/orthofinder-in/$sp.fasta

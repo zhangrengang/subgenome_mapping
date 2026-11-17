@@ -1,7 +1,7 @@
 #!/bin/bash
 # Download the reads of every design line from ENA (mirror of SRA), as gzipped fastq.
 #
-# usage: bash src/get_reads.sh [design.txt] [outdir=reads] [ncpu=4]
+# usage: bash src/get_reads.sh [species.design] [outdir=reads] [ncpu=4]
 #
 # design.txt col1 is the run accession (SRR/ERR/DRR...); col2/col3 are not used here.
 # Only the runs whose files are missing are downloaded, so re-running is cheap.
@@ -9,7 +9,7 @@
 #   (single-end runs: only <run>_1.fastq.gz)
 set -eu
 
-design=${1:-design.txt}
+design=${1:-species.design}
 outdir=${2:-reads}
 ncpu=${3:-4}
 mkdir -p $outdir
