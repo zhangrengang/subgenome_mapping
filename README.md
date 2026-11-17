@@ -237,6 +237,14 @@ while read -r run sp ref dtype; do
 done < species.design
 ```
 
+There is no `ref=` here, and none is needed: the reference was fixed one step earlier. `compmap`
+wrote every bait id as `<ref>-<column>_XG<row>`, so each retrieved sequence carries the column
+number of the copy it was assembled from; `append_cols` reads the part after the last `-`
+(`<column>_XG<row>`), puts the sequence into row *row* of a new column derived from
+`rename.list` line *column*, and names that column `<species id>_<subgenome>`. That is why the
+prefix has to be `<species>.<reference>` — the reference lives in the sequence ids, not in this
+call.
+
 Outputs `out-refguided/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
 `<species>_<subgenome>` columns, named after the copies of the reference.
 
