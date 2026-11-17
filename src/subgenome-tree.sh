@@ -18,7 +18,8 @@
 #   <outprefix>.genetrees      one Newick per gene family
 #   <outprefix>.astral-hyb     ASTRAL-hybrid species tree
 #   <outprefix>.alignments     concatenated alignment
-#   <outprefix>.alignments.trimal.fasttree   ML tree (trimal -gappyout + fasttree -nt -gtr)
+#   <outprefix>.alignments.trimal.fasttree   quick ML tree (trimal -gappyout + fasttree -nt -gtr)
+#   <outprefix>.alignments.trimal.iqtree.treefile   ML tree, GTR + 1000 ultrafast bootstrap (iqtree2)
 #   <outprefix>.tmp/           per-family mafft/trimal alignments and gene trees
 set -u
 
@@ -76,4 +77,13 @@ else
 		|| { echo "ERROR: fasttree failed"; exit 1; }
 fi
 
-ls -la "${pre}.genetrees" "${pre}.astral-hyb" "${pre}.alignments" "${pre}.alignments.trimal.fasttree"
+##########################################################################
+##### 4. ML tree with IQ-TREE (GTR + ultrafast bootstrap 1000) ##########
+##########################################################################
+iqtree2 -redo -s "${pre}.alignments.trimal" -mset GTR -B 1000 -T $ncpu \
+	-pre "${pre}.alignments.trimal.iqtree" \
+	|| { echo "ERROR: iqtree2 failed"; exit 1; }
+[ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }
+
+ls -la "${pre}.genetrees" "${pre}.astral-hyb" "${pre}.alignments" \
+	"${pre}.alignments.trimal.fasttree" "${pre}.alignments.trimal.iqtree.treefile"

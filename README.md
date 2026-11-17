@@ -174,12 +174,12 @@ while read -r run sp ref dtype; do
 	soi-wgdi compmap pre-study/merged.alignment.csv pre-study/cds.fa \
 		reads/${run}_1.fastq.gz reads/${run}_2.fastq.gz \
 		colnames=pre-study/rename.list ref=$ref \
-		prefix=out/$sp.$ref/$sp.$ref ncpu=$ncpu
+		prefix=out-refguided/$sp.$ref/$sp.$ref ncpu=$ncpu
 done < species.design
 ```
 
 The prefix decides where the bam of step 2 has to be, so keep the shape
-`out/<species>.<reference>/<species>.<reference>`. Outputs in `out/$sp.$ref/`:
+`out-refguided/<species>.<reference>/<species>.<reference>`. Outputs in `out-refguided/$sp.$ref/`:
 
 - `$sp.$ref.depth.tsv` — mean depth of every reference gene in every subgenome copy;
 - `$sp.$ref.depth.pdf` — the same per copy. Read this first: if the copies are covered very
@@ -194,18 +194,18 @@ exonerate run, so every copy is assembled separately, from the reads that were a
 
 ```
 while read -r run sp ref dtype; do
-	( cd out
+	( cd out-refguided
 	  touch dummy.fastq
 	  $PYTHON $HYBPIPER/reads_first.py -r dummy.fastq -b $sp.$ref/$sp.$ref.target.cds \
 		--prefix $sp.$ref --cpu $ncpu --bwa --no-blast
 	  $PYTHON $HYBPIPER/paralog_investigator.py $sp.$ref )
-	python3 src/retrieve_copies.py out/$sp.$ref
+	python3 src/retrieve_copies.py out-refguided/$sp.$ref
 done < species.design
 ```
 
 HybPiper must be started from the directory that *contains* `<prefix>/` and gets the bare
-directory name as `--prefix` — that is why the loop starts with `cd out`.
-`src/retrieve_copies.py` collects the per-gene sequences into `out/$sp.$ref.cds` and `.pep`,
+directory name as `--prefix` — that is why the loop starts with `cd out-refguided`.
+`src/retrieve_copies.py` collects the per-gene sequences into `out-refguided/$sp.$ref.cds` and `.pep`,
 with ids `$sp.$ref-<column>_XG<row>` (the id is what `append_cols` reads back: the part after
 the last `-` is the matrix cell, so the column and row are recovered from it). A paralog gets
 `-0`, `-1`… appended and is dropped by the next step, since it does not belong to one copy.
@@ -215,12 +215,12 @@ filled only where the sample has a sequence for that gene family and that copy:
 
 ```
 while read -r run sp ref dtype; do
-	soi-wgdi append_cols pre-study/merged.alignment.csv out/$sp.$ref.cds $sp \
-		colnames=pre-study/rename.list prefix=out/$sp.$ref-appended
+	soi-wgdi append_cols pre-study/merged.alignment.csv out-refguided/$sp.$ref.cds $sp \
+		colnames=pre-study/rename.list prefix=out-refguided/$sp.$ref-appended
 done < species.design
 ```
 
-Outputs `out/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
+Outputs `out-refguided/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
 `<species>_<subgenome>` columns, named after the copies of the reference.
 
 **Step 4 — subgenome tree.** Only the columns of this reference, of this sample and of the
@@ -232,31 +232,34 @@ cross-check. All three are written out below, no wrapper:
 while read -r run sp ref dtype; do
 	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" \
 		'{n=$2; if (n ~ ("^" r "_") || n ~ ("^" s "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
-		out/$sp.$ref-appended.rename.list)
+		out-refguided/$sp.$ref-appended.rename.list)
 
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/pep.faa > out/$sp.$ref-tree.pep.faa
+		pre-study/pep.faa > out-refguided/$sp.$ref-tree.pep.faa
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/cds.fa > out/$sp.$ref-tree.cds.fa
-	cat out/$sp.$ref.pep >> out/$sp.$ref-tree.pep.faa
-	cat out/$sp.$ref.cds >> out/$sp.$ref-tree.cds.fa
+		pre-study/cds.fa > out-refguided/$sp.$ref-tree.cds.fa
+	cat out-refguided/$sp.$ref.pep >> out-refguided/$sp.$ref-tree.pep.faa
+	cat out-refguided/$sp.$ref.cds >> out-refguided/$sp.$ref-tree.cds.fa
 
 	# 4a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
-	soi-wgdi genetrees out/$sp.$ref-appended.alignment.csv out/$sp.$ref-tree.pep.faa \
-		out/$sp.$ref-tree.cds.fa colnames=out/$sp.$ref-appended.rename.list \
+	soi-wgdi genetrees out-refguided/$sp.$ref-appended.alignment.csv out-refguided/$sp.$ref-tree.pep.faa \
+		out-refguided/$sp.$ref-tree.cds.fa colnames=out-refguided/$sp.$ref-appended.rename.list \
 		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
-		outdir=out/$sp.$ref-subgenome.tmp \
-		genetrees=out/$sp.$ref-subgenome.genetrees alignments=out/$sp.$ref-subgenome.alignments
+		outdir=out-refguided/$sp.$ref-subgenome.tmp \
+		genetrees=out-refguided/$sp.$ref-subgenome.genetrees alignments=out-refguided/$sp.$ref-subgenome.alignments
 
 	# 4b. species tree from the gene trees
-	astral-hybrid --root $outgroup -t 8 -i out/$sp.$ref-subgenome.genetrees \
-		> out/$sp.$ref-subgenome.astral-hyb
+	astral-hybrid --root $outgroup -t 8 -i out-refguided/$sp.$ref-subgenome.genetrees \
+		> out-refguided/$sp.$ref-subgenome.astral-hyb
 
-	# 4c. ML tree on the concatenation (gappyout trimming, then fasttree, then reroot)
-	trimal -in out/$sp.$ref-subgenome.alignments -gappyout \
-		> out/$sp.$ref-subgenome.alignments.trimal
-	fasttree -nt -gtr out/$sp.$ref-subgenome.alignments.trimal \
-		| nw_reroot - $outgroup > out/$sp.$ref-subgenome.alignments.trimal.fasttree
+	# 4c. ML trees on the concatenation: gappyout trimming first, then
+	#     fasttree as a quick check and iqtree with ultrafast bootstrap as the real ML tree
+	trimal -in out-refguided/$sp.$ref-subgenome.alignments -gappyout \
+		> out-refguided/$sp.$ref-subgenome.alignments.trimal
+	fasttree -nt -gtr out-refguided/$sp.$ref-subgenome.alignments.trimal \
+		| nw_reroot - $outgroup > out-refguided/$sp.$ref-subgenome.alignments.trimal.fasttree
+	iqtree2 -redo -s out-refguided/$sp.$ref-subgenome.alignments.trimal \
+		-mset GTR -B 1000 -T $ncpu -pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
 done < species.design
 ```
 
@@ -265,7 +268,7 @@ sisters — each sits next to the corresponding reference subgenome. If they are
 sample's copies do not resolve into the reference subgenomes.
 
 `pipeline-refguided.sh` is these four loops plus one combined tree per reference, with every
-sample of that reference in it (`out/<reference>-subgenome.*`); it calls
+sample of that reference in it (`out-refguided/<reference>-subgenome.*`); it calls
 `src/subgenome-tree.sh`, which is exactly the 4a–4c block above.
 
 ### Route 2: de novo ###
@@ -379,10 +382,10 @@ done
 ### Outputs ###
 
 The two routes produce files with the same names (`<reference>-subgenome.*`), so they write to
-different directories: route 1 to `out/`, route 2 to `out-denovo/`. Mixing them in one
+different directories: route 1 to `out-refguided/`, route 2 to `out-denovo/`. Mixing them in one
 directory would silently overwrite trees.
 
-Route 1, in `out/`:
+Route 1, in `out-refguided/`:
 
 ```
 <species>.<reference>.depth.tsv/.depth.pdf       per-copy coverage of the reference genes
@@ -390,8 +393,9 @@ Route 1, in `out/`:
 <species>.<reference>-appended.*                 matrix with this sample's columns
 <species>.<reference>-subgenome.genetrees        one tree per gene family
 <species>.<reference>-subgenome.astral-hyb       ASTRAL-hybrid subgenome tree
-<species>.<reference>-subgenome.alignments*      concatenation (+ .trimal.fasttree = ML tree)
-<reference>-subgenome.*                          the same tree for all samples of a reference
+<species>.<reference>-subgenome.alignments*      concatenation (+ .trimal.fasttree = quick ML,
+                                                .trimal.iqtree.treefile = ML with bootstrap)
+<reference>-subgenome.*                          the same trees for all samples of this reference
 ```
 
 Route 2, in `out-denovo/`:
@@ -457,7 +461,7 @@ the audit table (route 2, step 4).
 4. **Almost no `unique` assignments (route 2).** Several reference copies per orthogroup, so
    the copy is decided by competition and the labels are weak. Add gene families, use a closer
    reference, or use route 1.
-5. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out/`
+5. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out-refguided/`
    (or `out-denovo/`) for a clean run.
 6. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
    `<prefix>-subgenome.tmp` by the chromosome of the reference genes in
