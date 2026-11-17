@@ -48,19 +48,19 @@ to them. Both routes write the same matrix format, so samples of both can end up
             |                                   |
    ROUTE 1: reference-guided          ROUTE 2: de novo
             |                                   |
-   compmap: every read competes       megahit: assemble the sample
+   compmap: each read competes        megahit: assemble the sample
    for all copies of the reference    from its own reads
             |                                   |
-   HybPiper: assemble each copy       MetaEuk: gene models, the reference
-   from the reads that landed on it   proteins as evidence
+   HybPiper: one assembly per         MetaEuk: gene models, the reference
+   copy, from that copy's reads       proteins as evidence
             |                                   |
-   append_cols: those copies become   OrthoFinder -> orthomap: assign the
-   new matrix columns                 sample genes to the reference copies
+   append_cols: the copies become     OrthoFinder -> orthomap: place each
+   new matrix columns                 sample gene in its (family x copy) cell
             |                                   |
             +-----------------+-----------------+
                               |
       one matrix: rows = gene families, columns = subgenome copies, cells = gene ids
-                (the reference assignment is already in it -- that is the premise)
+             (the reference assignment is already in it -- that is the premise)
                               |
           soi-wgdi genetrees  ->  one tree per gene family (proteins)
                               |
