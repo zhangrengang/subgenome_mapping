@@ -99,10 +99,10 @@ done < $design
 ##########################################################################
 ##### one tree per reference: every sample of that reference together ####
 ##########################################################################
-for ref in $(awk '{print $3}' $design | sort -u)
-do
-	ns=$(awk -v r="$ref" '$3 == r' $design | wc -l)
-	[ "$ns" -ge 2 ] || { echo "== combined tree: only $ns sample(s) for $ref, skipped"; continue; }
+ref=$(awk '{print $3}' $design | sort -u)
+[ $(echo "$ref" | wc -l) -eq 1 ] || { echo "ERROR: $(echo "$ref" | wc -l) references in $design; the matrix is one reference, split the design"; exit 1; }
+ns=$(awk -v r="$ref" '$3 == r' $design | wc -l)
+if [ "$ns" -ge 2 ]; then
 	echo
 	echo "########## combined tree: $ref ##########"
 	aln=$pre/merged.alignment.csv
@@ -123,13 +123,7 @@ do
 		cols=$ocol
 	done
 	rm -f $out/$ref.pass*.alignment.csv $out/$ref.pass*.rename.list
-	ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" '
-		{ n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
-		' $cols)
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-	do
-		ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' $cols)"
-	done
+	ind=$(seq -s, 2 $(wc -l < $cols))
 	echo "   columns: $ind"
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
@@ -141,7 +135,9 @@ do
 	bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
 		$out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
 		$out/$ref-subgenome "$ind" $outgroup $ncpu
-done
+else
+	echo "== combined tree: only $ns sample(s) for $ref, skipped"
+fi
 
 echo
 echo "ALL DONE"

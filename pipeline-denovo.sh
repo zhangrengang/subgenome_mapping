@@ -102,21 +102,14 @@ soi-wgdi orthomap $pre/merged.alignment.csv $out/orthofinder-in/OrthoFinder/Resu
 echo "########## subgenome tree: $ref ##########"
 aln=$out/$ref-orthomap.alignment.csv
 cols=$out/$ref-orthomap.rename.list
-ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" '
-	{ n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
-	' $cols)
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-do
-	ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' $cols)"
-done
+# every column except the first (the anchor P_MK) enters the tree:
+# reference copies + outgroup + all sample columns
+ind=$(seq -s, 2 $(wc -l < $cols))
 echo "   columns: $ind"
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-do
-	cat $out/orthofinder-in/$sp.fasta >> $out/$ref-tree.pep.faa
-	cat $out/$sp.cds >> $out/$ref-tree.cds.fa
-done
+cat $(ls $out/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> $out/$ref-tree.pep.faa
+cat $out/*.cds >> $out/$ref-tree.cds.fa
 bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
 	$out/$ref-subgenome "$ind" $outgroup $ncpu
 

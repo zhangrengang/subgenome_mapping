@@ -271,9 +271,9 @@ What to look for: if the duplication is shared, the two copies of the sample are
 sisters — each sits next to the corresponding reference subgenome. If they are sisters, the
 sample's copies do not resolve into the reference subgenomes.
 
-`pipeline-refguided.sh` is these four loops plus one combined tree per reference, with every
-sample of that reference in it (`out-refguided/<reference>-subgenome.*`); it calls
-`src/subgenome-tree.sh`, which is exactly the 4a–4c block above.
+`pipeline-refguided.sh` is the four loops above plus one combined tree with every sample of the
+reference in it (`out-refguided/<reference>-subgenome.*`); it calls `src/subgenome-tree.sh`,
+which is exactly the 4a–4c block.
 
 ### Route 2: de novo ###
 
@@ -345,29 +345,23 @@ decided by competition, ties randomly). Watch the `unique` fraction: when most l
 nothing — a limit of the data, not of the tree step.
 
 **Step 5 — subgenome tree.** The same three commands as route 1 step 4, on the orthomap
-matrix; here the sample genes come from the de novo gene models:
+matrix; here the sample genes come from the de novo gene models, and every column except the
+first (the anchor) goes into the tree:
 
 ```
-ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" \
-	'{n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
-	out-denovo/$ref-orthomap.rename.list)
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
-	ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' \
-		out-denovo/$ref-orthomap.rename.list)"
-done
+aln=out-denovo/$ref-orthomap.alignment.csv
+cols=out-denovo/$ref-orthomap.rename.list
+ind=$(seq -s, 2 $(wc -l < $cols))
 
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 	pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 	pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
-	cat out-denovo/orthofinder-in/$sp.fasta >> out-denovo/$ref-tree.pep.faa
-	cat out-denovo/$sp.cds >> out-denovo/$ref-tree.cds.fa
-done
+cat $(ls out-denovo/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> out-denovo/$ref-tree.pep.faa
+cat out-denovo/*.cds >> out-denovo/$ref-tree.cds.fa
 
-soi-wgdi genetrees out-denovo/$ref-orthomap.alignment.csv out-denovo/$ref-tree.pep.faa \
-	out-denovo/$ref-tree.cds.fa colnames=out-denovo/$ref-orthomap.rename.list \
-	indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+soi-wgdi genetrees $aln $cols out-denovo/$ref-tree.pep.faa out-denovo/$ref-tree.cds.fa \
+	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
 	outdir=out-denovo/$ref-subgenome.tmp \
 	genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
 astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
@@ -379,6 +373,7 @@ fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
 iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
 	-mset GTR -B 1000 -T $ncpu -pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
 ```
+
 
 
 ### Outputs ###
