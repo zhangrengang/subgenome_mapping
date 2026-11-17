@@ -14,10 +14,8 @@
 
 A polyploid lineage keeps several **subgenomes**: after a whole-genome duplication it carries
 two, three or five copies of most genes, one copy per subgenome. For one reference species
-those copies have already been assigned, and that assignment is the starting point here — it
-is the file `pre-study/merged.alignment.csv`, in the output format of `wgdi -at`: one row per
-gene family, one column per subgenome copy, a cell being the gene id of that family in that
-copy.
+those copies have already been assigned, and that assignment is the starting point here: the
+file `pre-study/merged.alignment.csv`, described under *Input data*.
 
 The question this repository answers is narrower than "are there several subgenomes": **does
 a species known only from sequencing reads share that duplication?** If it does, its genes
@@ -68,14 +66,9 @@ The reference side is the directory `pre-study/`:
 | file | content |
 |---|---|
 | `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -at`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty |
-| `rename.list` | the column names of that matrix, one line per column: `<number> <TAB> <name>` |
+| `rename.list` | column names of that matrix, line *n* = column *n*, name = the second field (the first is just a running number) |
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
-
-`rename.list` is only a name table: the **line order** is the column order and the name is the
-second field (`tab`-split), so the running number in the first field is for reading only — a
-file with just the names works the same way. What must hold is that line *n* describes column
-*n* of the matrix.
 
 Two conventions are used everywhere:
 
