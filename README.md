@@ -260,29 +260,32 @@ done < species.design
 HybPiper must be started from the directory that *contains* `<prefix>/` and gets the bare
 directory name as `--prefix` — that is why the loop starts with `cd out-refguided`.
 
-HybPiper 2.x alternative (not what the numbers above were made with). If you would rather run
-2.x, the equivalent is one command plus the same retrieval, from `out-refguided/`:
+HybPiper 2.x alternative (not what the numbers above were made with). 2.x has a single command
+instead of the two scripts, and it can reuse the bam from step 1 — not through the implicit
+`<prefix>/<prefix>.bam` convention of 1.x, but by starting at the second stage explicitly
+(`map_reads` → `distribute_reads` → `assemble_reads` → `extract_contigs`):
 
 ```
+cd out-refguided
 hybpiper assemble -r ../reads/${run}_clean_1.fastq.gz ../reads/${run}_clean_2.fastq.gz \
-    -t_dna $sp.$ref/$sp.$ref.target.cds --bwa --prefix $sp.$ref --cpu $ncpu --no_intronerate
+    -t_dna $sp.$ref/$sp.$ref.target.cds --bwa --start_from distribute_reads \
+    --prefix $sp.$ref --cpu $ncpu --no_intronerate
 hybpiper paralog_retriever $sp.$ref
 python3 ../src/retrieve_copies.py $sp.$ref
 ```
 
-Two differences decide whether that is acceptable for your question. First, 2.x maps the reads
-itself — there is no option to hand it the bam from step 1 — so the "one read supports one copy"
-property of `compmap` is lost, and the depth table stays the direct evidence for the copy
-assignment. Second, 2.x wants python ≥ 3.9, the `progressbar` and `pebble` packages, and BBTools
-(`bbmap.sh`, `bbmerge.sh`) on `PATH`. Its output tree is the same as 1.x
-(`<prefix>/<gene>/<prefix>/sequences/FNA|FAA/<gene>.FNA|FAA`, `genes_with_seqs.txt`, `paralogs/`),
-which is why `src/retrieve_copies.py` reads it unchanged; that was checked against the 2.1.8 and
-2.3.4 sources, not by running 2.x here — BBTools is not installed on the machine these numbers
-come from.
-`src/retrieve_copies.py` collects the per-gene sequences into `out-refguided/$sp.$ref.cds` and `.pep`,
-with ids `$sp.$ref-<column>_XG<row>` (the id is what `append_cols` reads back: the part after
-the last `-` is the matrix cell, so the column and row are recovered from it). A paralog gets
-`-0`, `-1`… appended and is dropped by the next step, since it does not belong to one copy.
+With `--start_from distribute_reads` plus `--bwa` it skips mapping and reads
+`<prefix>/<prefix>.bam`, i.e. exactly the file `compmap` wrote, so the "one read supports one
+copy" property is kept. Its output tree is also the same as 1.x
+(`<prefix>/<gene>/<prefix>/sequences/FNA|FAA/<gene>.FNA|FAA`, `genes_with_seqs.txt`,
+`paralogs/`), which is why `src/retrieve_copies.py` reads it unchanged.
+
+Requirements differ from 1.x: python ≥ 3.9, the `progressbar` and `pebble` packages, BBTools
+(`bbmap.sh`, `bbmerge.sh`) and **exonerate 2.4.0 specifically** — 2.x refuses to start on the
+exonerate 2.2.0 that 1.x works with. That last one is where the test of this variant stopped on
+the machine the numbers above come from: the command reached 2.x's dependency check and exited
+there, so the steps before it (bam reuse, output layout) are read from the 2.3.4 source and not
+from a completed run.
 
 **Step 3 — append the sample as new columns.** One column per copy of the reference; a cell is
 filled only where the sample has a sequence for that gene family and that copy:
