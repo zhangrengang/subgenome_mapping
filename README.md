@@ -434,9 +434,9 @@ Measured with `bash pipeline-refguided.sh` on the downloaded runs:
 | library | HybSeq (target capture) |
 | mean depth per subgenome copy | R 4.9x / H 5.2x |
 | copies assembled (of 594 baits) | 201 |
-| gene trees in the subgenome tree | 134 |
+| gene trees in the subgenome tree | 143 |
 | topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.000 / 1.000 |
-| ML tree on the concatenation | same topology, split support 1.000 / 1.000 |
+| ML tree (iqtree, JTT on the protein concatenation, rooted at the outgroup) | same topology, bootstrap 100 / 100 |
 
 The sample from the same subfamily resolves cleanly into the two reference subgenomes, which is
 the signal this pipeline is built to detect. *Triplochiton* (also Helicteroideae, WGS) is in
