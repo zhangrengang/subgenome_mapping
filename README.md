@@ -104,8 +104,13 @@ Not included there, install into the same environment (route 1 and the trees):
 mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate
 ```
 
-`astral-hybrid` is one of the binaries of [ASTER](https://github.com/chaoszhang/ASTER)
-("Accurate Species Tree EstimatoR"); download the release and put the binaries on `PATH`.
+`astral-hybrid` comes from [ASTER](https://github.com/chaoszhang/ASTER) ("Accurate Species
+Tree EstimatoR"), which is a conda package too:
+
+```
+mamba install -n OrthoIndex -c bioconda aster
+```
+
 Route 2 additionally needs
 
 ```
@@ -268,7 +273,13 @@ sample of that reference in it (`out/<reference>-subgenome.*`); it calls
 Here the sample is assembled and annotated on its own, and only then are its genes compared
 with the reference — instead of assembling it on the reference baits as in route 1. Use it when
 you want the sample's own gene models (its own introns, its own UTRs) or when the sample is too
-divergent for the baits. A `HybSeq` sample is processed like any other, but its reads cover
+divergent for the baits.
+
+The three steps are separable: if you already have an assembly, put it at
+`out-denovo/<species>-assembly/final.contigs.fa` and start at step 2 (annotation); if you
+already have gene models, write them as `out-denovo/orthofinder-in/<species>.fasta`
+(proteins, ids `<species>|g…`) plus `out-denovo/<species>.cds` and start at step 3
+(OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
 only the captured genes, so its assembly — and everything downstream — is limited to them.
 
 **Step 1 — assembly.**
