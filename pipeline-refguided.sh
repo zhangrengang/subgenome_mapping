@@ -46,10 +46,10 @@ do
 	# resulting bam only keeps the genes whose copies are all retained; the
 	# depth table says whether the copies are covered evenly
 	##################################################################
-	echo "== 1) compmap: $reads/${sample}_{1,2}.fastq.gz -> $ref copies"
+	echo "== 1) compmap: $reads/${sample}_clean_{1,2}.fastq.gz -> $ref copies"
 	mkdir -p $out/$sp.$ref
 	soi-wgdi compmap $pre/merged.alignment.csv $pre/cds.fa \
-		$reads/${sample}_1.fastq.gz $reads/${sample}_2.fastq.gz \
+		$reads/${sample}_clean_1.fastq.gz $reads/${sample}_clean_2.fastq.gz \
 		colnames=$pre/rename.list ref=$ref prefix=$out/$sp.$ref/$sp.$ref ncpu=$ncpu
 
 	##################################################################
