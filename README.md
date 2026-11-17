@@ -145,15 +145,24 @@ Two of them are worth watching: HybPiper 1.2 is python2 and was written against 
 OrthoFinder 3 writes `Orthologues/<sp>.tsv` while 2.x writes `Orthologues_<sp>/` — `orthomap`
 reads both, but the Results directory name contains the date, so always let the glob pick it.
 
-Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper) (it is what calls
-spades and exonerate, so install it as its own README says) and `src/retrieve_copies.py`
-from this repository (`biopython` is already in the environment). The pipeline calls
-HybPiper's scripts through an interpreter, so nothing has to be made executable:
+Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper), and here the version
+matters: these steps use the **1.x** scripts — `reads_first.py --bwa --no-blast`,
+`paralog_investigator.py`, and the per-gene `<prefix>/<gene>/<prefix>/sequences/` layout that
+`src/retrieve_copies.py` reads. HybPiper 2.x is a different program (`hybpiper assemble`, another
+output layout) and does not work here; the `hybpiper` package on conda starts at 2.x, so it is not
+an option either. Install 1.x from git, next to python2.7 + biopython:
 
 ```
-export HYBPIPER=/path/to/HybPiper/bin   # the directory holding reads_first.py
-export PYTHON=python                    # interpreter that install needs (python2 for HybPiper 1.2)
+git clone https://github.com/mossmatters/HybPiper.git
+cd HybPiper && git checkout v1.2.0        # tested; v1.3.1 is the last 1.x
+conda create -n hybpiper -c conda-forge -c bioconda python=2.7 biopython
+export HYBPIPER=$PWD/bin                  # the directory holding reads_first.py
+export PYTHON=/path/to/envs/hybpiper/bin/python
+$PYTHON $HYBPIPER/reads_first.py --check-depend     # should not report missing dependencies
 ```
+
+Nothing has to be made executable — both scripts are called through `$PYTHON`, and spades /
+exonerate come from the OrthoIndex environment on `PATH`.
 
 Step 0 uses only `curl`.
 
