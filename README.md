@@ -29,10 +29,10 @@ There are two routes; they differ in **how the copies are found**:
 | 1, reference-guided | reads compete for all copies of the reference; a read is assigned to at most one copy, and that copy is then assembled from those reads | `pipeline-refguided.sh` |
 | 2, de novo | reads are assembled into contigs, annotated, and the resulting genes are assigned to the copies by orthology | `pipeline-denovo.sh` |
 
-Route 1 keeps the depth information and is the one that tests the subgenomes. Route 2 is for
-WGS data; for target capture (HybSeq) libraries it is skipped, because those reads cover only
-the captured genes and assembling them genome-wide means nothing. Both routes write the same
-matrix format, so samples of both can end up in one tree.
+Route 1 keeps the depth information and is the one that tests the subgenomes. Route 2 works
+from an assembly, so with target capture (HybSeq) reads the assembly only covers the captured
+genes and the result is limited to them — it runs, but it is a target assembly, not a genome.
+Both routes write the same matrix format, so samples of both can end up in one tree.
 
 Every step below is a loop over `species.design`, and the two `pipeline-*.sh` scripts are
 those loops in order, plus one combined tree per reference. Read the steps to understand what
@@ -55,8 +55,9 @@ ERR7599640	Ungeria_floribunda	Reevesia_pubescens	HybSeq
    sequenced twice needs two ids (`_WGS`, `_1`, `_2`).
 3. **col3, reference species** — whose subgenome copies are columns of the matrix. These
    copies are the baits (route 1) and the assignment target (route 2).
-4. **col4, library type** — `WGS` or `HybSeq`. Informational for route 1; route 2 only takes
-   `WGS` lines.
+4. **col4, library type** — `WGS` or `HybSeq`. Only printed with the log line; it tells you
+   (and the log reader) how far the assembly of route 2 can reach: a HybSeq sample assembles
+   only the captured genes.
 
 The reference side is the directory `pre-study/`:
 
@@ -238,15 +239,14 @@ sample of that reference in it (`out/<reference>-subgenome.*`).
 
 ### Route 2: de novo ###
 
-Use this when you want the sample's own gene models, or when only an assembly exists. Only
-`WGS` lines are processed; a `HybSeq` line is skipped with a message, because its reads cover
-only the captured genes.
+Use this when you want the sample's own gene models, or when only an assembly exists. Every
+design line is processed; for a `HybSeq` sample the assembly covers only the captured genes,
+so its gene models — and everything downstream — are limited to those genes.
 
 **Step 1 — assembly.**
 
 ```
 while read -r run sp ref dtype; do
-	[ "$dtype" = "WGS" ] || { echo "skip $sp: $dtype"; continue; }
 	megahit -1 reads/${run}_1.fastq.gz -2 reads/${run}_2.fastq.gz \
 		-o out-denovo/$sp-assembly -t $ncpu --min-contig-len 300
 done < species.design
@@ -259,7 +259,6 @@ order in both files):
 
 ```
 while read -r run sp ref dtype; do
-	[ "$dtype" = "WGS" ] || continue
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/$ref.evidence.faa
 	metaeuk easy-predict out-denovo/$sp-assembly/final.contigs.fa out-denovo/$ref.evidence.faa \
 		out-denovo/$sp.metaeuk out-denovo/$sp.metaeuk.tmp --max-intron 500000 --threads $ncpu
@@ -276,7 +275,6 @@ proteins — one fasta per species, named after the species:
 ```
 mkdir -p out-denovo/orthofinder-in
 while read -r run sp ref dtype; do
-	[ "$dtype" = "WGS" ] || continue
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$ref.fasta
 	cp out-denovo/$sp.pep out-denovo/orthofinder-in/$sp.fasta
 done < species.design
@@ -290,7 +288,6 @@ reference genes keep their rows, so the matrix has the same shape as in route 1:
 
 ```
 while read -r run sp ref dtype; do
-	[ "$dtype" = "WGS" ] || continue
 	soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/OrthoFinder/Results_* \
 		design=species.design colnames=pre-study/rename.list ref=$ref \
 		out=out-denovo/$ref-orthomap.alignment.csv prefix=out-denovo/$ref-orthomap
@@ -375,8 +372,9 @@ evidence.
    `<species>_<subgenome>`; the labels are free (`_A/_B/_C` works the same way), only the
    `<species>_<subgenome>` shape matters.
 3. **Which column is used for what?** `col1` locates the reads (`reads/<col1>_{1,2}.fastq.gz`),
-   `col2` labels the output, `col3` selects the reference, `col4` decides whether route 2
-   takes the sample.
+   `col2` labels the output, `col3` selects the reference, `col4` only describes the library
+   (it decides nothing; it is read into the log so that a shallow or capture-limited result
+   can be recognised).
 4. **Few genes assembled (route 1).** Look at `<species>.<reference>.depth.tsv` and
    `.depth.pdf` first: if the copies are covered very unevenly, the sample either does not
    share the duplication or its reads are too shallow for that reference. A target capture

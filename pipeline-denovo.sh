@@ -13,8 +13,9 @@
 #     run        accession; reads/<run>_{1,2}.fastq.gz (see src/get_reads.sh)
 #     species_id label of this sample; its gene ids become <species_id>|g000001
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
-#     dtype      library type; only WGS lines are assembled here (HybSeq reads cover
-#                only the captured genes, so a genome-wide assembly of them is meaningless)
+#     dtype      library type; processed the same way, printed with the log line.
+#                HybSeq (target capture) reads only cover the captured genes, so the
+#                assembly of such a sample is a target assembly, not a genome
 #
 # requires on PATH: megahit, metaeuk, orthofinder, soi-wgdi
 set -eu
@@ -33,7 +34,7 @@ mkdir -p $out
 while read -r sample sp ref dtype
 do
 	[ -n "${sample:-}" ] || continue
-	[ "$dtype" = "WGS" ] || { echo "== skip $sp: $dtype reads are not genome-wide, only route 1 applies"; continue; }
+	[ "$dtype" = "WGS" ] || echo "== note: $sp is $dtype, its assembly covers only the captured genes"
 	echo "########## $sp: assembly ##########"
 	##################################################################
 	##### megahit ####################################################
