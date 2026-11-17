@@ -128,6 +128,23 @@ mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate aster mega
 `astral-hybrid` (the species tree step) is one of the [ASTER](https://github.com/chaoszhang/ASTER)
 binaries, shipped by the `aster` package.
 
+That line installs current releases. The numbers in this README were produced with the versions
+below — not pinned, so if your run disagrees, pin these first:
+
+| tool | tested with | | tool | tested with |
+|---|---|---|---|---|
+| SOI (`soi-wgdi`) | 1.3.14 | | MEGAHIT | 1.2.9 |
+| bwa | 0.7.17-r1188 | | MetaEuk | bba0d80 |
+| samtools | 1.17 | | mafft | 7.515 |
+| SPAdes (called by HybPiper) | 3.13.1 | | trimAl | 1.4.rev15 |
+| exonerate | 2.2.0 | | IQ-TREE | 2.2.0.3 |
+| HybPiper | 1.2 | | OrthoFinder | 3.1.5 (2.x results are read too) |
+| ASTER (`astral-hybrid`) | v1.15.2.3 | | | |
+
+Two of them are worth watching: HybPiper 1.2 is python2 and was written against SPAdes 3.x, and
+OrthoFinder 3 writes `Orthologues/<sp>.tsv` while 2.x writes `Orthologues_<sp>/` — `orthomap`
+reads both, but the Results directory name contains the date, so always let the glob pick it.
+
 Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper) (it is what calls
 spades and exonerate, so install it as its own README says) and `src/retrieve_copies.py`
 from this repository (`biopython` is already in the environment). The pipeline calls
