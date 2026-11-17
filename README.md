@@ -442,9 +442,13 @@ The sample from the same subfamily resolves cleanly into the two reference subge
 the signal this pipeline is built to detect. *Triplochiton* (also Helicteroideae, WGS) is in
 the design and runs the same way; its numbers are not listed here yet.
 
-Route 2 on the same sample assigns the copies from orthogroups instead of from competitive
-mapping; its tree is read together with the `unique` fraction of the audit table and with the
-number of families that carry two sample copies (route 2, step 4).
+Route 2 on the same sample (assembled and annotated on its own): 50 gene models, 36 gene trees,
+and of the 43 matrix cells filled for the sample only 6 families carry **both** copies (R 20,
+H 23 filled cells); the audit table has 10 `unique` and 70 `conflict` links. With mostly one
+sequence per family there is nothing to assign uniquely, and the tree puts the two sample copies
+as sisters next to one reference subgenome — the capture library does not separate the homeologs,
+so this run says nothing about the duplication either way. The two counts (filled cells per
+copy, families with both) are what decides whether a route 2 tree can be read at all.
 
 ### FAQ ###
 
