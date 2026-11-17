@@ -37,6 +37,42 @@ not use the reference for assembly at all, only afterwards for the assignment; w
 capture (HybSeq) reads its assembly covers only the captured genes, so the result is limited
 to them. Both routes write the same matrix format, so samples of both can end up in one tree.
 
+```
+        species.design  (run accession, species id, reference, WGS|HybSeq)
+                              |
+                 src/get_reads.sh  ->  reads/<run>_{1,2}.fastq.gz
+                              |
+        src/trim_reads.sh (fastp)   ->  reads/<run>_clean_{1,2}.fastq.gz
+                              |
+            +-----------------+-----------------+
+            |                                   |
+   ROUTE 1: reference-guided          ROUTE 2: de novo
+            |                                   |
+   compmap: every read competes       megahit: assemble the sample
+   for all copies of the reference    from its own reads
+            |                                   |
+   HybPiper: assemble each copy       MetaEuk: gene models, the reference
+   from the reads that landed on it   proteins as evidence
+            |                                   |
+   append_cols: those copies become   OrthoFinder -> orthomap: assign the
+   new matrix columns                 sample genes to the reference copies
+            |                                   |
+            +-----------------+-----------------+
+                              |
+      one matrix: rows = gene families, columns = subgenome copies, cells = gene ids
+                (the reference assignment is already in it -- that is the premise)
+                              |
+          soi-wgdi genetrees  ->  one tree per gene family (proteins)
+                              |
+     astral-hybrid -> subgenome tree      iqtree2 -> ML tree on the concatenation
+                              |
+     <species>.<reference>-subgenome.*    <reference>-subgenome.*  (all samples of a reference)
+```
+
+Same start, same end: the routes differ only in how a sample gene is given its subgenome label —
+by competition over the reference copies (route 1) or by orthology after assembling the sample on
+its own (route 2).
+
 Every step below is a loop over `species.design`, and the two `pipeline-*.sh` scripts are
 those loops in order plus one combined tree per reference. Read the steps to understand what
 happens; run the scripts when you have many samples.
