@@ -70,6 +70,19 @@ The reference side is the directory `pre-study/`:
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
 
+col3 is not a free label — it is the **prefix of the copy columns in `rename.list`**: the copies
+of a reference are the columns named `<col3>_<subgenome>` (the last `_` splits species from
+subgenome), and the outgroup passed to the tree step is a column name exactly as written there.
+With the example design that means `rename.list` must contain `Reevesia_pubescens_R`,
+`Reevesia_pubescens_H` and `Theobroma_cacao`:
+
+```
+cut -f2 pre-study/rename.list | grep -E '^Reevesia_pubescens_|^Theobroma_cacao$'
+```
+
+For your own matrix, col3 and the outgroup are read **from these column names** — not guessed
+from the species you happen to have sequenced.
+
 One matrix = one reference species: `merged.alignment.csv` holds the copies of a single
 reference, so a design run is per reference. Samples of another reference need their own matrix
 and their own run.
