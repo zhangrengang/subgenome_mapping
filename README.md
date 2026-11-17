@@ -248,10 +248,12 @@ call.
 Outputs `out-refguided/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
 `<species>_<subgenome>` columns, named after the copies of the reference.
 
-**Step 4 — subgenome tree.** Only the columns of this reference, of this sample and of the
-outgroup enter the tree. Three things happen: gene trees per family from the codon-aware CDS
-alignment, ASTRAL-hybrid on those gene trees, and an ML tree on the concatenation as a
-cross-check. All three are written out below, no wrapper:
+**Step 4 — subgenome tree, one per sample.** Step 3 produces one appended matrix per sample, so
+each sample gets its own tree; the loop is over the design for that reason (the combined tree
+with all samples of the reference comes afterwards, in `pipeline-refguided.sh`). Only the columns
+of this reference, of this sample and of the outgroup enter the tree: gene trees per family from
+the proteins, ASTRAL-hybrid on those gene trees, and an ML tree on the concatenation as a
+cross-check. All of it is written out below, no wrapper:
 
 ```
 while read -r run sp ref dtype; do
