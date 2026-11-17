@@ -429,19 +429,19 @@ Measured with `bash pipeline-refguided.sh` on the downloaded runs:
 |---|---|
 | subfamily of the sample | Helicteroideae (same as the reference) |
 | library | HybSeq (target capture) |
-| mean depth per subgenome copy | 4.9x / 5.2x |
+| mean depth per subgenome copy | R 4.9x / H 5.2x |
 | copies assembled (of 594 baits) | 201 |
 | gene trees in the subgenome tree | 134 |
 | topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.000 / 1.000 |
 | ML tree on the concatenation | same topology, split support 1.000 / 1.000 |
 
 The sample from the same subfamily resolves cleanly into the two reference subgenomes, which is
-the signal this pipeline is built to detect. (*Triplochiton*, from another subfamily, is in the
-design and runs the same way; its numbers are not listed here yet.)
+the signal this pipeline is built to detect. *Triplochiton* (also Helicteroideae, WGS) is in
+the design and runs the same way; its numbers are not listed here yet.
 
-Route 2 on the same sample is the weaker route: its copy assignment comes from orthogroups
-instead of from competitive mapping, so read its tree together with the `unique` fraction of
-the audit table (route 2, step 4).
+Route 2 on the same sample assigns the copies from orthogroups instead of from competitive
+mapping, so its tree is read together with the `unique` fraction of the audit table (route 2,
+step 4), which says how many of those assignments were unambiguous.
 
 ### FAQ ###
 
