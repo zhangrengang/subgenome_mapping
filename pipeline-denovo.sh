@@ -40,9 +40,11 @@ do
 	##################################################################
 	##### megahit ####################################################
 	##################################################################
+	# per-sample directory: assembly and gene models live together
+	[ -e $out/$sp ] && rm -rf $out/$sp
 	megahit -1 $reads/${sample}_clean_1.fastq.gz -2 $reads/${sample}_clean_2.fastq.gz \
-		-o $out/$sp-assembly -t $ncpu
-	echo "   contigs: $(grep -c '^>' $out/$sp-assembly/final.contigs.fa)"
+		-o $out/$sp -t $ncpu
+	echo "   contigs: $(grep -c '^>' $out/$sp/final.contigs.fa)"
 done < $design
 
 ##########################################################################
@@ -58,15 +60,16 @@ do
 	# are the ones that can be compared with the reference copies
 	##################################################################
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/$ref.evidence.faa
-	metaeuk easy-predict $out/$sp-assembly/final.contigs.fa $out/$ref.evidence.faa \
-		$out/$sp.metaeuk $out/$sp.metaeuk.tmp --max-intron 500000 --threads $ncpu
+	metaeuk easy-predict $out/$sp/final.contigs.fa $out/$ref.evidence.faa \
+		$out/$sp/$sp.metaeuk $out/$sp/tmp.metaeuk --max-intron 500000 --threads $ncpu
 	##################################################################
 	##### renumber: protein and CDS share one id series ##############
 	##################################################################
 	mkdir -p $out/orthofinder-in
-	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp.metaeuk.fas      > $out/orthofinder-in/$sp.fasta
-	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp.metaeuk.codon.fas > $out/$sp.cds
-	echo "   genes: $(grep -c '^>' $out/orthofinder-in/$sp.fasta)"
+	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp/$sp.metaeuk.fas      > $out/$sp/$sp.pep
+	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp/$sp.metaeuk.codon.fas > $out/$sp/$sp.cds
+	ln -sf ../$sp/$sp.pep $out/orthofinder-in/$sp.fasta
+	echo "   genes: $(grep -c '^>' $out/$sp/$sp.pep)"
 done < $design
 
 ##########################################################################

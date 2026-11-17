@@ -301,19 +301,20 @@ done < species.design
 **Step 2 — gene models.** MetaEuk predicts genes with the reference proteins as evidence, so
 the genes found are the ones that can be compared with the reference copies. Protein and CDS
 are then renumbered with one shared id series (`<species>|g000001`, `…|g000002`, the same order
-in both files); the protein file is written straight into the OrthoFinder input directory
-(one file per species, named after the species):
+in both files) and stay in the sample's directory; the protein is linked into the OrthoFinder
+input directory, one file per species named after the species:
 
 ```
 while read -r run sp ref dtype; do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/$ref.evidence.faa
-	metaeuk easy-predict out-denovo/$sp-assembly/final.contigs.fa out-denovo/$ref.evidence.faa \
-		out-denovo/$sp.metaeuk out-denovo/$sp.metaeuk.tmp --max-intron 500000 --threads $ncpu
+	metaeuk easy-predict out-denovo/$sp/final.contigs.fa out-denovo/$ref.evidence.faa \
+		out-denovo/$sp/$sp.metaeuk out-denovo/$sp/tmp.metaeuk --max-intron 500000 --threads $ncpu
 	mkdir -p out-denovo/orthofinder-in
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
-		out-denovo/$sp.metaeuk.fas       > out-denovo/orthofinder-in/$sp.fasta
+		out-denovo/$sp/$sp.metaeuk.fas       > out-denovo/$sp/$sp.pep
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
-		out-denovo/$sp.metaeuk.codon.fas > out-denovo/$sp.cds
+		out-denovo/$sp/$sp.metaeuk.codon.fas > out-denovo/$sp/$sp.cds
+	ln -sf ../$sp/$sp.pep out-denovo/orthofinder-in/$sp.fasta
 done < species.design
 ```
 
@@ -362,7 +363,7 @@ awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep'
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 	pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
 cat $(ls out-denovo/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> out-denovo/$ref-tree.pep.faa
-cat out-denovo/*.cds >> out-denovo/$ref-tree.cds.fa
+cat out-denovo/*/*.cds >> out-denovo/$ref-tree.cds.fa
 
 soi-wgdi genetrees $aln $cols out-denovo/$ref-tree.pep.faa out-denovo/$ref-tree.cds.fa \
 	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
@@ -402,8 +403,9 @@ Route 1, in `out-refguided/`:
 Route 2, in `out-denovo/`:
 
 ```
-<species>-assembly/final.contigs.fa              assembly
-<species>.pep/.cds/.gff                          gene models, ids <species>|g000001…
+<species>/final.contigs.fa                       assembly
+<species>/<species>.pep/.cds/.gff                gene models, ids <species>|g000001…
+<species>/<species>.metaeuk.*                    raw MetaEuk output (kept for tracing)
 orthofinder-in/OrthoFinder/Results_*/            orthology
 <reference>-orthomap.alignment.csv/.rename.list  matrix with the new columns
 <reference>-orthomap.orthomap.tsv                assignment audit table
