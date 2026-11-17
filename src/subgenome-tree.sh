@@ -33,6 +33,14 @@ ncpu=${8:-8}
 max_missing=${9:-0.5}
 tree_from=${10:-pep}
 
+# positional form: <indice> [root] [max_missing] [ncpu] [tree_from]; keep them numeric
+case "$max_missing" in
+	''|*[!0-9.]*) echo "WARN: max_missing='$max_missing' not numeric, using 0.5"; max_missing=0.5 ;;
+esac
+case "$ncpu" in
+	''|*[!0-9]*) echo "WARN: ncpu='$ncpu' not numeric, using 8"; ncpu=8 ;;
+esac
+
 [ -s "$aln" ]      || { echo "ERROR: no alignment file $aln"; exit 1; }
 [ -s "$colnames" ] || { echo "ERROR: no colnames file $colnames"; exit 1; }
 [ -s "$pep" ]      || { echo "ERROR: no pep file $pep"; exit 1; }

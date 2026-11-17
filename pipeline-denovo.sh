@@ -112,7 +112,7 @@ echo "   columns: $ind"
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
 cat $(ls $out/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> $out/$ref-tree.pep.faa
 bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
-	$out/$ref-subgenome "$ind" $outgroup $ncpu pep
+	$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
 
 echo
 echo "ALL DONE"

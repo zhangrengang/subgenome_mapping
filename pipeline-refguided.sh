@@ -91,7 +91,7 @@ do
 	cat $out/$sp.$ref.pep >> $out/$sp.$ref-tree.pep.faa
 	bash src/subgenome-tree.sh $out/$sp.$ref-appended.alignment.csv $out/$sp.$ref-appended.rename.list \
 		$out/$sp.$ref-tree.pep.faa $out/$sp.$ref-tree.pep.faa \
-		$out/$sp.$ref-subgenome "$ind" $outgroup $ncpu pep
+		$out/$sp.$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
 done < $design
 
 ##########################################################################
@@ -130,7 +130,7 @@ if [ "$ns" -ge 2 ]; then
 	done
 	bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
 		$out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
-		$out/$ref-subgenome "$ind" $outgroup $ncpu pep
+		$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
 else
 	echo "== combined tree: only $ns sample(s) for $ref, skipped"
 fi
