@@ -259,6 +259,26 @@ done < species.design
 
 HybPiper must be started from the directory that *contains* `<prefix>/` and gets the bare
 directory name as `--prefix` — that is why the loop starts with `cd out-refguided`.
+
+HybPiper 2.x alternative (not what the numbers above were made with). If you would rather run
+2.x, the equivalent is one command plus the same retrieval, from `out-refguided/`:
+
+```
+hybpiper assemble -r ../reads/${run}_clean_1.fastq.gz ../reads/${run}_clean_2.fastq.gz \
+    -t_dna $sp.$ref/$sp.$ref.target.cds --bwa --prefix $sp.$ref --cpu $ncpu --no_intronerate
+hybpiper paralog_retriever $sp.$ref
+python3 ../src/retrieve_copies.py $sp.$ref
+```
+
+Two differences decide whether that is acceptable for your question. First, 2.x maps the reads
+itself — there is no option to hand it the bam from step 1 — so the "one read supports one copy"
+property of `compmap` is lost, and the depth table stays the direct evidence for the copy
+assignment. Second, 2.x wants python ≥ 3.9, the `progressbar` and `pebble` packages, and BBTools
+(`bbmap.sh`, `bbmerge.sh`) on `PATH`. Its output tree is the same as 1.x
+(`<prefix>/<gene>/<prefix>/sequences/FNA|FAA/<gene>.FNA|FAA`, `genes_with_seqs.txt`, `paralogs/`),
+which is why `src/retrieve_copies.py` reads it unchanged; that was checked against the 2.1.8 and
+2.3.4 sources, not by running 2.x here — BBTools is not installed on the machine these numbers
+come from.
 `src/retrieve_copies.py` collects the per-gene sequences into `out-refguided/$sp.$ref.cds` and `.pep`,
 with ids `$sp.$ref-<column>_XG<row>` (the id is what `append_cols` reads back: the part after
 the last `-` is the matrix cell, so the column and row are recovered from it). A paralog gets
