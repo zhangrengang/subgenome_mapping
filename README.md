@@ -358,10 +358,14 @@ Measured on the downloaded runs (route 1):
 | topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.00 / 0.9999 | — |
 
 The sample from the same subfamily resolves cleanly into the two reference subgenomes, which
-is the signal this pipeline is built to detect. The de novo route gives a much weaker
-assignment — watch the `unique` fraction in its audit table: with 58 families and a 2-copy
-reference most orthogroups contain both copies, so route 2 is the fallback, not the primary
-evidence.
+is the signal this pipeline is built to detect.
+
+Route 2 on the same HybSeq sample, for comparison: 26,921 contigs, 20 gene models, 42
+ortholog pairs of which only 6 are `unique` (36 `conflict`, copy decided randomly), and a tree
+in which the two sample copies stay sisters next to one reference subgenome — i.e. the copies
+are not resolved. With 58 families and a 2-copy reference most orthogroups contain both
+copies, so route 2 is the fallback, not the primary evidence; the `unique` fraction of its
+audit table tells you how much of the answer to trust.
 
 ### FAQ ###
 
