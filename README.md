@@ -112,24 +112,45 @@ export PYTHON=python                    # interpreter that install needs (python
 
 Step 0 uses only `curl`.
 
-### Step 0: get the reads ###
+### Step 0: get and trim the reads ###
+
+Download — for each run in the design, ask ENA (the SRA mirror) for its fastq links and fetch
+them:
 
 ```
-bash src/get_reads.sh species.design reads 4      # design, output directory, parallel downloads
+while read -r run sp ref dtype; do
+	urls=$(curl -s "https://www.ebi.ac.uk/ena/portal/api/filereport?accession=${run}&result=read_run&fields=fastq_ftp&format=tsv" \
+		| awk -F'\t' 'NR>1 && $2!="" {print $2}' | tr ';' '\n')
+	i=0
+	for u in $urls; do
+		i=$((i+1))
+		curl -s -L --retry 5 -C - -o reads/${run}_${i}.fastq.gz "https://${u}"
+	done
+done < species.design
 ```
 
-For each line of the design the script asks ENA (the SRA mirror) for the fastq links of the
-run in col1, through the portal API
+Trim — adapters and low-quality 3' ends both break step 1 of route 1 (a read that should
+compete for a copy gets clipped) and the de novo assembly of route 2, so every run goes
+through fastp first:
 
 ```
-https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRR34069007&result=read_run&fields=fastq_ftp&format=tsv
+while read -r run sp ref dtype; do
+	fastp --in1 reads/${run}_1.fastq.gz --in2 reads/${run}_2.fastq.gz \
+		--out1 reads/${run}_clean_1.fastq.gz --out2 reads/${run}_clean_2.fastq.gz \
+		--html reads/${run}.fastp.html \
+		--cut_by_quality3 --cut_by_quality5 --n_base_limit 1 --length_required 60 \
+		--correction --thread $ncpu
+done < species.design
 ```
 
-and downloads them as `reads/<run>_1.fastq.gz` and `reads/<run>_2.fastq.gz`; single-end runs
-give one file. With the example design that is `reads/SRR34069007_{1,2}.fastq.gz` (5.9 GB,
-WGS) and `reads/ERR7599640_{1,2}.fastq.gz` (0.3 GB, target capture). Runs already downloaded
-are skipped, so you can add lines to the design and re-run. Reads are used as downloaded; if
-your own data needs adapter/quality trimming, trim first and keep the same file names.
+The options are the ones used for the project this pipeline comes from: cut the first/last
+bases while quality ≤ 3, drop reads containing any N, require ≥ 60 bp after trimming, correct
+low-quality bases in overlapping pairs. Both routes read the `*_clean_{1,2}.fastq.gz` files;
+the raw downloads stay next to them. `src/get_reads.sh` and `src/trim_reads.sh` are these two
+loops plus a "already done, skip" guard.
+
+With the example design that gives `reads/SRR34069007_clean_{1,2}.fastq.gz` (WGS, 5.9 GB
+downloaded) and `reads/ERR7599640_clean_{1,2}.fastq.gz` (target capture, 0.3 GB).
 
 ### Route 1: reference-guided ###
 
@@ -140,10 +161,6 @@ follows from that. Two variables are used by all steps below:
 outgroup=Theobroma_cacao
 ncpu=8
 ```
-
-All loops read four fields. It has to be four: `read` puts the *rest* of the line into the
-last variable, so `while read -r run sp ref` would hand `Reevesia_pubescens<TAB>WGS` to `$ref`.
-If the fourth column is of no interest, use `while read -r run sp ref _`.
 
 **Step 1 — competitive mapping.** All CDS of the reference species are used as baits, not only
 the genes that are complete in the reference: a read coming from one copy has to be able to
@@ -393,13 +410,14 @@ Trees are plain Newick. For figures use your own viewer (e.g.
 
 ### The example data ###
 
-`species.design` and `pre-study/` are a small real example: 58 gene families of the reference
+`species.design` and `pre-study/` are a small real example: 300 gene families of the reference
 *Reevesia pubescens* (its two subgenomes `_R` and `_H`), and two samples — *Triplochiton
 scleroxylon* (`SRR34069007`, WGS, 5.9 GB) and *Ungeria floribunda* (`ERR7599640`, target
 capture, 0.3 GB) — whose full runs are downloaded in step 0:
 
 ```
 bash src/get_reads.sh species.design reads 4
+bash src/trim_reads.sh species.design reads 8
 bash pipeline-refguided.sh species.design 8
 bash pipeline-denovo.sh species.design 8
 ```
@@ -410,21 +428,19 @@ Measured with `bash pipeline-refguided.sh` on the downloaded runs:
 |---|---|
 | subfamily of the sample | Helicteroideae (same as the reference) |
 | library | HybSeq (target capture) |
-| mean depth per subgenome copy | 4.5x / 4.7x |
-| copies assembled (of 114 baits) | 42 |
-| gene trees in the subgenome tree | 27 |
-| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.00 / 0.9999 |
+| mean depth per subgenome copy | 4.9x / 5.2x |
+| copies assembled (of 594 baits) | 201 |
+| gene trees in the subgenome tree | 134 |
+| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.000 / 1.000 |
+| ML tree on the concatenation | same topology, split support 1.000 / 1.000 |
 
 The sample from the same subfamily resolves cleanly into the two reference subgenomes, which is
 the signal this pipeline is built to detect. (*Triplochiton*, from another subfamily, is in the
 design and runs the same way; its numbers are not listed here yet.)
 
-Route 2 on the same HybSeq sample, for comparison: 26,921 contigs, 20 gene models, 42 ortholog
-pairs of which only 6 are `unique` (36 `conflict`, copy decided randomly), and a tree in which
-the two sample copies stay sisters next to one reference subgenome — i.e. the copies are not
-resolved. With 58 families and a 2-copy reference most orthogroups contain both copies, so
-route 2 is the fallback, not the primary evidence; the `unique` fraction of its audit table
-tells you how much of the answer to trust.
+Route 2 on the same sample is the weaker route: its copy assignment comes from orthogroups
+instead of from competitive mapping, so read its tree together with the `unique` fraction of
+the audit table (route 2, step 4).
 
 ### FAQ ###
 

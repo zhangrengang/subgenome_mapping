@@ -10,7 +10,8 @@
 #
 # species.design: same file as the reference-guided route, 4 columns, no header:
 #   <run>  <species_id>  <reference_species>  <WGS|HybSeq>
-#     run        accession; reads/<run>_{1,2}.fastq.gz (see src/get_reads.sh)
+#     run        accession; reads/<run>_clean_{1,2}.fastq.gz (src/get_reads.sh,
+#                then src/trim_reads.sh)
 #     species_id label of this sample; its gene ids become <species_id>|g000001
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
 #     dtype      library type; processed the same way, printed with the log line.
@@ -39,8 +40,8 @@ do
 	##################################################################
 	##### megahit ####################################################
 	##################################################################
-	megahit -1 $reads/${sample}_1.fastq.gz -2 $reads/${sample}_2.fastq.gz \
-		-o $out/$sp-assembly -t $ncpu --min-contig-len 300
+	megahit -1 $reads/${sample}_clean_1.fastq.gz -2 $reads/${sample}_clean_2.fastq.gz \
+		-o $out/$sp-assembly -t $ncpu
 	echo "   contigs: $(grep -c '^>' $out/$sp-assembly/final.contigs.fa)"
 done < $design
 

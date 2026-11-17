@@ -10,7 +10,8 @@
 #
 # species.design: 4 columns, no header, no comments:
 #   <run>  <species_id>  <reference_species>  <WGS|HybSeq>
-#     run        accession; reads/<run>_{1,2}.fastq.gz (see src/get_reads.sh)
+#     run        accession; reads/<run>_clean_{1,2}.fastq.gz (src/get_reads.sh,
+#                then src/trim_reads.sh)
 #     species_id label of this sample; its new columns are <species_id>_<subgenome>
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
 #     dtype      library type, printed with the log line (both types work here)
