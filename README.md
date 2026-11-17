@@ -141,7 +141,7 @@ through fastp first:
 while read -r run sp ref dtype; do
 	fastp --in1 reads/${run}_1.fastq.gz --in2 reads/${run}_2.fastq.gz \
 		--out1 reads/${run}_clean_1.fastq.gz --out2 reads/${run}_clean_2.fastq.gz \
-		--html reads/${run}.fastp.html \
+		--html reads/${run}.fastp.html --json reads/${run}.fastp.json \
 		--cut_by_quality3 --cut_by_quality5 --n_base_limit 1 --length_required 60 \
 		--correction --thread $ncpu
 done < species.design
