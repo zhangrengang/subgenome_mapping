@@ -340,9 +340,13 @@ soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/Ortho
 It also writes `<prefix>.orthomap.tsv`, the audit table: one row per attempted assignment, with
 `status` (assigned / gene already used / cell already taken) and `kind` (`unique` = the sample
 gene is orthologous to **one** reference copy; `same`/`conflict` = to several, so the copy is
-decided by competition, ties randomly). Watch the `unique` fraction: when most links are
-`conflict`, the orthogroups do not resolve the copies and the copy labels of that sample mean
-nothing — a limit of the data, not of the tree step.
+decided by competition, ties randomly). The `unique` fraction is part of the result, not just a
+quality flag: a sample gene that is orthologous to several copies at once is a gene whose
+subgenome cannot be told apart, which is what a sample without the duplication looks like. Its
+counterpart is how many families carry **two** sample sequences (both sample columns filled in
+one row): many such families plus a high `unique` fraction = the sample keeps the copies
+separately; few such families = one sequence per family, and then no assignment can be unique.
+Read both numbers together with the tree.
 
 **Step 5 — subgenome tree.** The same three commands as route 1 step 4, on the orthomap
 matrix; here the sample genes come from the de novo gene models, and every column except the
@@ -440,8 +444,8 @@ the signal this pipeline is built to detect. *Triplochiton* (also Helicteroideae
 the design and runs the same way; its numbers are not listed here yet.
 
 Route 2 on the same sample assigns the copies from orthogroups instead of from competitive
-mapping, so its tree is read together with the `unique` fraction of the audit table (route 2,
-step 4), which says how many of those assignments were unambiguous.
+mapping; its tree is read together with the `unique` fraction of the audit table and with the
+number of families that carry two sample copies (route 2, step 4).
 
 ### FAQ ###
 
@@ -455,9 +459,13 @@ step 4), which says how many of those assignments were unambiguous.
    `.depth.pdf` first: if the copies are covered very unevenly, the sample either does not
    share the duplication or its reads are too shallow for that reference. A target capture
    experiment covers only the captured genes.
-4. **Almost no `unique` assignments (route 2).** Several reference copies per orthogroup, so
-   the copy is decided by competition and the labels are weak. Add gene families, use a closer
-   reference, or use route 1.
+4. **Almost no `unique` assignments (route 2).** Two readings, and the data separates them:
+   the sample's genes may genuinely not be assignable to one copy — a gene orthologous to both
+   copies is what "does not share the duplication" looks like — or the sample has the copies but
+   its assembly merged the two homeologs. Count the rows where both sample columns are filled:
+   if most families hold a single sequence, no assignment can be unique; if many hold two and
+   still assign at random, the evidence is too thin (more families, a closer reference) and
+   route 1 is the way to go.
 5. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out-refguided/`
    (or `out-denovo/`) for a clean run.
 6. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
