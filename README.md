@@ -70,6 +70,10 @@ The reference side is the directory `pre-study/`:
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
 
+One matrix = one reference species: `merged.alignment.csv` holds the copies of a single
+reference, so a design run is per reference. Samples of another reference need their own matrix
+and their own run.
+
 Two conventions are used everywhere:
 
 - gene ids are `<species>|<gene id>` (the `|` separator is what OrthoFinder and the tree tools
@@ -317,9 +321,8 @@ done < species.design
 proteins and the outgroup are added once, the sample files are already there from step 2:
 
 ```
-for ref in $(awk '{print $3}' species.design | sort -u); do
-	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$ref.fasta
-done
+ref=$(awk '{print $3}' species.design | sort -u)      # one matrix = one reference
+awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$ref.fasta
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$outgroup.fasta
 orthofinder -f out-denovo/orthofinder-in -t $ncpu
 ```
@@ -329,11 +332,9 @@ columns: a sample gene goes to at most one cell, a cell holds at most one gene, 
 reference genes keep their rows, so the matrix has the same shape as in route 1:
 
 ```
-for ref in $(awk '{print $3}' species.design | sort -u); do
-	soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/OrthoFinder/Results_* \
-		design=species.design colnames=pre-study/rename.list ref=$ref \
-		out=out-denovo/$ref-orthomap.alignment.csv prefix=out-denovo/$ref-orthomap
-done
+soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/OrthoFinder/Results_* \
+	design=species.design colnames=pre-study/rename.list \
+	out=out-denovo/$ref-orthomap.alignment.csv prefix=out-denovo/$ref-orthomap
 ```
 
 It also writes `<prefix>.orthomap.tsv`, the audit table: one row per attempted assignment, with
@@ -347,37 +348,38 @@ nothing — a limit of the data, not of the tree step.
 matrix; here the sample genes come from the de novo gene models:
 
 ```
-for ref in $(awk '{print $3}' species.design | sort -u); do
-	ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" \
-		'{n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
-		out-denovo/$ref-orthomap.rename.list)
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
-		ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' \
-			out-denovo/$ref-orthomap.rename.list)"
-	done
-
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
-		cat out-denovo/orthofinder-in/$sp.fasta >> out-denovo/$ref-tree.pep.faa
-		cat out-denovo/$sp.cds >> out-denovo/$ref-tree.cds.fa
-	done
-
-	soi-wgdi genetrees out-denovo/$ref-orthomap.alignment.csv out-denovo/$ref-tree.pep.faa \
-		out-denovo/$ref-tree.cds.fa colnames=out-denovo/$ref-orthomap.rename.list \
-		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
-		outdir=out-denovo/$ref-subgenome.tmp \
-		genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
-	astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
-		> out-denovo/$ref-subgenome.astral-hyb
-	trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
-		> out-denovo/$ref-subgenome.alignments.trimal
-	fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
-		| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
+ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" \
+	'{n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
+	out-denovo/$ref-orthomap.rename.list)
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+	ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' \
+		out-denovo/$ref-orthomap.rename.list)"
 done
+
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
+	pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
+	pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+	cat out-denovo/orthofinder-in/$sp.fasta >> out-denovo/$ref-tree.pep.faa
+	cat out-denovo/$sp.cds >> out-denovo/$ref-tree.cds.fa
+done
+
+soi-wgdi genetrees out-denovo/$ref-orthomap.alignment.csv out-denovo/$ref-tree.pep.faa \
+	out-denovo/$ref-tree.cds.fa colnames=out-denovo/$ref-orthomap.rename.list \
+	indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+	outdir=out-denovo/$ref-subgenome.tmp \
+	genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
+astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
+	> out-denovo/$ref-subgenome.astral-hyb
+trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
+	> out-denovo/$ref-subgenome.alignments.trimal
+fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
+	| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
+iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
+	-mset GTR -B 1000 -T $ncpu -pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
 ```
+
 
 ### Outputs ###
 

@@ -73,56 +73,52 @@ done < $design
 ##### 3. orthology: reference copies vs sample genes ####################
 ##########################################################################
 echo "########## OrthoFinder ##########"
+# one matrix = one reference species; a design mixing references has to be split
+nref=$(awk '{print $3}' $design | sort -u | wc -l)
+[ "$nref" -eq 1 ] || { echo "ERROR: $nref references in $design but the matrix is one reference; split the design"; exit 1; }
+ref=$(awk '{print $3}' $design | sort -u)
 mkdir -p $out/orthofinder-in
-for ref in $(awk '{print $3}' $design | sort -u)
-do
-	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$ref.fasta
-done
+awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$ref.fasta
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$outgroup.fasta
 orthofinder -f $out/orthofinder-in -t $ncpu
 
 ##########################################################################
 ##### 4. assign sample genes to the copies ##############################
 ##########################################################################
-for ref in $(awk '{print $3}' $design | sort -u)
-do
-	echo "########## orthomap: $ref ##########"
-	##################################################################
-	##### soi-wgdi orthomap ##########################################
-	# every sample gene gets at most one cell; one cell holds at most one
-	# gene; a gene of the reference keeps its own row
-	##################################################################
-	soi-wgdi orthomap $pre/merged.alignment.csv $out/orthofinder-in/OrthoFinder/Results_* \
-		design=$design colnames=$pre/rename.list ref=$ref \
-		out=$out/$ref-orthomap.alignment.csv prefix=$out/$ref-orthomap
-done
+echo "########## orthomap ##########"
+##################################################################
+##### soi-wgdi orthomap ##########################################
+# every sample gene gets at most one cell; one cell holds at most one gene;
+# the reference genes keep their rows. ref is inferred from design + results
+# + matrix column names (must be unique)
+##################################################################
+soi-wgdi orthomap $pre/merged.alignment.csv $out/orthofinder-in/OrthoFinder/Results_* \
+	design=$design colnames=$pre/rename.list \
+	out=$out/$ref-orthomap.alignment.csv prefix=$out/$ref-orthomap
 
 ##########################################################################
 ##### 5. subgenome tree #################################################
 ##########################################################################
-for ref in $(awk '{print $3}' $design | sort -u)
+echo "########## subgenome tree: $ref ##########"
+aln=$out/$ref-orthomap.alignment.csv
+cols=$out/$ref-orthomap.rename.list
+ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" '
+	{ n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
+	' $cols)
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
 do
-	echo "########## subgenome tree: $ref ##########"
-	aln=$out/$ref-orthomap.alignment.csv
-	cols=$out/$ref-orthomap.rename.list
-	ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" '
-		{ n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
-		' $cols)
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-	do
-		ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' $cols)"
-	done
-	echo "   columns: $ind"
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-	do
-		cat $out/orthofinder-in/$sp.fasta >> $out/$ref-tree.pep.faa
-		cat $out/$sp.cds >> $out/$ref-tree.cds.fa
-	done
-	bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
-		$out/$ref-subgenome "$ind" $outgroup $ncpu
+	ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' $cols)"
 done
+echo "   columns: $ind"
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
+do
+	cat $out/orthofinder-in/$sp.fasta >> $out/$ref-tree.pep.faa
+	cat $out/$sp.cds >> $out/$ref-tree.cds.fa
+done
+bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
+	$out/$ref-subgenome "$ind" $outgroup $ncpu
 
 echo
 echo "ALL DONE"
