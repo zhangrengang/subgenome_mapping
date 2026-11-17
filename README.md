@@ -37,36 +37,34 @@ not use the reference for assembly at all, only afterwards for the assignment; w
 capture (HybSeq) reads its assembly covers only the captured genes, so the result is limited
 to them. Both routes write the same matrix format, so samples of both can end up in one tree.
 
-```
-        species.design  (run accession, species id, reference, WGS|HybSeq)
-                              |
-                 src/get_reads.sh  ->  reads/<run>_{1,2}.fastq.gz
-                              |
-        src/trim_reads.sh (fastp)   ->  reads/<run>_clean_{1,2}.fastq.gz
-                              |
-            +-----------------+-----------------+
-            |                                   |
-   ROUTE 1: reference-guided          ROUTE 2: de novo
-            |                                   |
-   compmap: each read competes        megahit: assemble the sample
-   for all copies of the reference    from its own reads
-            |                                   |
-   HybPiper: one assembly per         MetaEuk: gene models, the reference
-   copy, from that copy's reads       proteins as evidence
-            |                                   |
-   append_cols: the copies become     OrthoFinder -> orthomap: place each
-   new matrix columns                 sample gene in its (family x copy) cell
-            |                                   |
-            +-----------------+-----------------+
-                              |
-      one matrix: rows = gene families, columns = subgenome copies, cells = gene ids
-             (the reference assignment is already in it -- that is the premise)
-                              |
-          soi-wgdi genetrees  ->  one tree per gene family (proteins)
-                              |
-     astral-hybrid -> subgenome tree      iqtree2 -> ML tree on the concatenation
-                              |
-     <species>.<reference>-subgenome.*    <reference>-subgenome.*  (all samples of a reference)
+```mermaid
+flowchart TD
+    A["species.design: run accession, species id, reference, WGS|HybSeq"] --> B["src/get_reads.sh<br/>reads/RUN_1.fastq.gz, RUN_2.fastq.gz"]
+    B --> C["src/trim_reads.sh (fastp)<br/>reads/RUN_clean_1.fastq.gz, RUN_clean_2.fastq.gz"]
+    C --> R1a
+    C --> R2a
+
+    subgraph R1["Route 1: reference-guided"]
+        R1a["compmap<br/>every read competes for all copies of the reference"]
+        R1b["HybPiper<br/>one assembly per copy, from that copy's reads"]
+        R1c["append_cols<br/>those copies become new matrix columns"]
+        R1a --> R1b --> R1c
+    end
+
+    subgraph R2["Route 2: de novo"]
+        R2a["megahit<br/>assemble the sample from its own reads"]
+        R2b["MetaEuk<br/>gene models, reference proteins as evidence"]
+        R2c["OrthoFinder then orthomap<br/>each sample gene into its family x copy cell"]
+        R2a --> R2b --> R2c
+    end
+
+    R1c --> M["one matrix: rows = gene families, columns = subgenome copies, cells = gene ids<br/>the reference assignment is already in it - that is the premise"]
+    R2c --> M
+    M --> T["soi-wgdi genetrees<br/>one tree per gene family (proteins)"]
+    T --> S1["astral-hybrid<br/>subgenome tree"]
+    T --> S2["iqtree2<br/>ML tree on the concatenation"]
+    S1 --> O["species.reference-subgenome.*<br/>reference-subgenome.* (all samples of a reference)"]
+    S2 --> O
 ```
 
 Same start, same end: the routes differ only in how a sample gene is given its subgenome label —
