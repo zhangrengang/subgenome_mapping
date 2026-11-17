@@ -12,30 +12,35 @@
 
 ### What it does ###
 
-A polyploid species carries several **subgenomes**: after a whole-genome duplication it
-keeps two, three or five copies of most genes, one copy per subgenome. If another species
-shares that duplication, its genes should also fall into the same subgenomes, i.e. each of
-its copies should be sister to the corresponding subgenome of a reference species whose
-subgenomes are already resolved.
+A polyploid lineage keeps several **subgenomes**: after a whole-genome duplication it carries
+two, three or five copies of most genes, one copy per subgenome. For one reference species
+those copies have already been assigned, and that assignment is the starting point here — it
+is the file `pre-study/merged.alignment.csv`, in the output format of `wgdi -at`: one row per
+gene family, one column per subgenome copy, a cell being the gene id of that family in that
+copy.
 
-This repository scores exactly that. Starting from the reads of a species, every gene is
-assigned to one subgenome copy of a reference species, and gene trees are built to see
-whether the assignment makes sense.
+The question this repository answers is narrower than "are there several subgenomes": **does
+a species known only from sequencing reads share that duplication?** If it does, its genes
+should fall into the same subgenomes, i.e. each of its copies should be sister to the
+corresponding copy of the reference instead of the sample's copies being sisters to each
+other.
 
-There are two routes; they differ in **how the copies are found**:
+So the work is (i) to decide, for every reference gene family, which copy a read-derived
+sequence of the sample belongs to, and (ii) to build trees that show whether that assignment
+recovers the reference's subgenomes. Two routes do (i) differently:
 
 | route | idea | script |
 |---|---|---|
 | 1, reference-guided | reads compete for all copies of the reference; a read is assigned to at most one copy, and that copy is then assembled from those reads | `pipeline-refguided.sh` |
-| 2, de novo | reads are assembled into contigs, annotated, and the resulting genes are assigned to the copies by orthology | `pipeline-denovo.sh` |
+| 2, de novo | the sample is assembled and annotated on its own, and its genes are assigned to the copies by orthology | `pipeline-denovo.sh` |
 
-Route 1 keeps the depth information and is the one that tests the subgenomes. Route 2 works
-from an assembly, so with target capture (HybSeq) reads the assembly only covers the captured
-genes and the result is limited to them — it runs, but it is a target assembly, not a genome.
-Both routes write the same matrix format, so samples of both can end up in one tree.
+Route 1 keeps the depth information and is the route that tests the duplication. Route 2 does
+not use the reference for assembly at all, only afterwards for the assignment; with target
+capture (HybSeq) reads its assembly covers only the captured genes, so the result is limited
+to them. Both routes write the same matrix format, so samples of both can end up in one tree.
 
 Every step below is a loop over `species.design`, and the two `pipeline-*.sh` scripts are
-those loops in order, plus one combined tree per reference. Read the steps to understand what
+those loops in order plus one combined tree per reference. Read the steps to understand what
 happens; run the scripts when you have many samples.
 
 ### Input data ###
@@ -55,23 +60,27 @@ ERR7599640	Ungeria_floribunda	Reevesia_pubescens	HybSeq
    sequenced twice needs two ids (`_WGS`, `_1`, `_2`).
 3. **col3, reference species** — whose subgenome copies are columns of the matrix. These
    copies are the baits (route 1) and the assignment target (route 2).
-4. **col4, library type** — `WGS` or `HybSeq`. Only printed with the log line; it tells you
-   (and the log reader) how far the assembly of route 2 can reach: a HybSeq sample assembles
-   only the captured genes.
+4. **col4, library type** — `WGS` or `HybSeq`; only printed with the log line, it tells the
+   reader how far the assembly of route 2 can reach.
 
 The reference side is the directory `pre-study/`:
 
 | file | content |
 |---|---|
-| `merged.alignment.csv` | matrix: one row per gene family, one **column per subgenome copy**; a cell is a gene id or empty |
-| `rename.list` | column names, `<index> <TAB> <name>`, 1-based |
+| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -at`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty |
+| `rename.list` | the column names of that matrix, one line per column: `<number> <TAB> <name>` |
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
 
+`rename.list` is only a name table: the **line order** is the column order and the name is the
+second field (`tab`-split), so the running number in the first field is for reading only — a
+file with just the names works the same way. What must hold is that line *n* describes column
+*n* of the matrix.
+
 Two conventions are used everywhere:
 
-- gene ids are `<species>|<gene id>` (the `|` separator is what OrthoFinder and the tree
-  tools expect);
+- gene ids are `<species>|<gene id>` (the `|` separator is what OrthoFinder and the tree tools
+  expect);
 - a copy column is named `<species>_<subgenome>`, e.g. `Reevesia_pubescens_R` and
   `Reevesia_pubescens_H`; a species without copies (the outgroup, `Theobroma_cacao`) is a
   single column. The labels are free — `_A/_B/_C` works the same way.
@@ -95,8 +104,9 @@ Not included there, install into the same environment (route 1 and the trees):
 mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate
 ```
 
-`astral-hybrid` is a separate download from [ASTRAL-MP](https://github.com/smirarab/ASTRAL);
-put the binary on `PATH`. Route 2 additionally needs
+`astral-hybrid` is one of the binaries of [ASTER](https://github.com/chaoszhang/ASTER)
+("Accurate Species Tree EstimatoR"); download the release and put the binaries on `PATH`.
+Route 2 additionally needs
 
 ```
 mamba install -n OrthoIndex -c bioconda megahit metaeuk
@@ -143,6 +153,10 @@ outgroup=Theobroma_cacao
 ncpu=8
 ```
 
+All loops read four fields. It has to be four: `read` puts the *rest* of the line into the
+last variable, so `while read -r run sp ref` would hand `Reevesia_pubescens<TAB>WGS` to `$ref`.
+If the fourth column is of no interest, use `while read -r run sp ref _`.
+
 **Step 1 — competitive mapping.** All CDS of the reference species are used as baits, not only
 the genes that are complete in the reference: a read coming from one copy has to be able to
 compete with the other copies, otherwise a conserved gene would pile up on whichever copy
@@ -186,9 +200,10 @@ done < species.design
 
 HybPiper must be started from the directory that *contains* `<prefix>/` and gets the bare
 directory name as `--prefix` — that is why the loop starts with `cd out`.
-`src/retrieve_copies.py` then collects the per-gene sequences into `out/$sp.$ref.cds` and
-`.pep`, with ids `$sp.$ref-<column>_XG<row>`; a paralog gets `-0`, `-1`… appended and is
-dropped by the next step, since it does not belong to a single copy.
+`src/retrieve_copies.py` collects the per-gene sequences into `out/$sp.$ref.cds` and `.pep`,
+with ids `$sp.$ref-<column>_XG<row>` (the id is what `append_cols` reads back: the part after
+the last `-` is the matrix cell, so the column and row are recovered from it). A paralog gets
+`-0`, `-1`… appended and is dropped by the next step, since it does not belong to one copy.
 
 **Step 3 — append the sample as new columns.** One column per copy of the reference; a cell is
 filled only where the sample has a sequence for that gene family and that copy:
@@ -204,80 +219,93 @@ Outputs `out/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference 
 `<species>_<subgenome>` columns, named after the copies of the reference.
 
 **Step 4 — subgenome tree.** Only the columns of this reference, of this sample and of the
-outgroup enter the tree. Gene trees are built from the CDS (codon-aware alignment, so indels
-do not shift the frame) and combined by ASTRAL-hybrid; an ML tree on the concatenation is
-built as a cross-check:
+outgroup enter the tree. Three things happen: gene trees per family from the codon-aware CDS
+alignment, ASTRAL-hybrid on those gene trees, and an ML tree on the concatenation as a
+cross-check. All three are written out below, no wrapper:
 
 ```
 while read -r run sp ref dtype; do
 	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" \
 		'{n=$2; if (n ~ ("^" r "_") || n ~ ("^" s "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
 		out/$sp.$ref-appended.rename.list)
+
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 		pre-study/pep.faa > out/$sp.$ref-tree.pep.faa
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 		pre-study/cds.fa > out/$sp.$ref-tree.cds.fa
 	cat out/$sp.$ref.pep >> out/$sp.$ref-tree.pep.faa
 	cat out/$sp.$ref.cds >> out/$sp.$ref-tree.cds.fa
-	bash src/subgenome-tree.sh out/$sp.$ref-appended.alignment.csv \
-		out/$sp.$ref-appended.rename.list \
-		out/$sp.$ref-tree.pep.faa out/$sp.$ref-tree.cds.fa \
-		out/$sp.$ref-subgenome "$ind" $outgroup $ncpu
+
+	# 4a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
+	soi-wgdi genetrees out/$sp.$ref-appended.alignment.csv out/$sp.$ref-tree.pep.faa \
+		out/$sp.$ref-tree.cds.fa colnames=out/$sp.$ref-appended.rename.list \
+		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+		outdir=out/$sp.$ref-subgenome.tmp \
+		genetrees=out/$sp.$ref-subgenome.genetrees alignments=out/$sp.$ref-subgenome.alignments
+
+	# 4b. species tree from the gene trees
+	astral-hybrid --root $outgroup -t 8 -i out/$sp.$ref-subgenome.genetrees \
+		> out/$sp.$ref-subgenome.astral-hyb
+
+	# 4c. ML tree on the concatenation (gappyout trimming, then fasttree, then reroot)
+	trimal -in out/$sp.$ref-subgenome.alignments -gappyout \
+		> out/$sp.$ref-subgenome.alignments.trimal
+	fasttree -nt -gtr out/$sp.$ref-subgenome.alignments.trimal \
+		| nw_reroot - $outgroup > out/$sp.$ref-subgenome.alignments.trimal.fasttree
 done < species.design
 ```
-
-`src/subgenome-tree.sh` runs `soi-wgdi genetrees` (mafft → trimal → iqtree per gene family),
-then `astral-hybrid --root $outgroup`, then `trimal -gappyout` + `fasttree -nt -gtr` +
-`nw_reroot` for the ML tree.
 
 What to look for: if the duplication is shared, the two copies of the sample are **not**
 sisters — each sits next to the corresponding reference subgenome. If they are sisters, the
 sample's copies do not resolve into the reference subgenomes.
 
 `pipeline-refguided.sh` is these four loops plus one combined tree per reference, with every
-sample of that reference in it (`out/<reference>-subgenome.*`).
+sample of that reference in it (`out/<reference>-subgenome.*`); it calls
+`src/subgenome-tree.sh`, which is exactly the 4a–4c block above.
 
 ### Route 2: de novo ###
 
-Use this when you want the sample's own gene models, or when only an assembly exists. Every
-design line is processed; for a `HybSeq` sample the assembly covers only the captured genes,
-so its gene models — and everything downstream — are limited to those genes.
+Here the sample is assembled and annotated on its own, and only then are its genes compared
+with the reference — instead of assembling it on the reference baits as in route 1. Use it when
+you want the sample's own gene models (its own introns, its own UTRs) or when the sample is too
+divergent for the baits. A `HybSeq` sample is processed like any other, but its reads cover
+only the captured genes, so its assembly — and everything downstream — is limited to them.
 
 **Step 1 — assembly.**
 
 ```
 while read -r run sp ref dtype; do
 	megahit -1 reads/${run}_1.fastq.gz -2 reads/${run}_2.fastq.gz \
-		-o out-denovo/$sp-assembly -t $ncpu --min-contig-len 300
+		-o out-denovo/$sp-assembly -t $ncpu
 done < species.design
 ```
 
 **Step 2 — gene models.** MetaEuk predicts genes with the reference proteins as evidence, so
 the genes found are the ones that can be compared with the reference copies. Protein and CDS
-are then renumbered with one shared id series (`<species>|g000001`, `…|g000002`, the same
-order in both files):
+are then renumbered with one shared id series (`<species>|g000001`, `…|g000002`, the same order
+in both files); the protein file is written straight into the OrthoFinder input directory
+(one file per species, named after the species):
 
 ```
 while read -r run sp ref dtype; do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/$ref.evidence.faa
 	metaeuk easy-predict out-denovo/$sp-assembly/final.contigs.fa out-denovo/$ref.evidence.faa \
 		out-denovo/$sp.metaeuk out-denovo/$sp.metaeuk.tmp --max-intron 500000 --threads $ncpu
+	mkdir -p out-denovo/orthofinder-in
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
-		out-denovo/$sp.metaeuk.fas       > out-denovo/$sp.pep
+		out-denovo/$sp.metaeuk.fas       > out-denovo/orthofinder-in/$sp.fasta
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
 		out-denovo/$sp.metaeuk.codon.fas > out-denovo/$sp.cds
 done < species.design
 ```
 
-**Step 3 — orthology.** OrthoFinder over the reference proteins, the outgroup and the sample
-proteins — one fasta per species, named after the species:
+**Step 3 — orthology.** One OrthoFinder run over the whole input directory — the reference
+proteins and the outgroup are added once, the sample files are already there from step 2:
 
 ```
-mkdir -p out-denovo/orthofinder-in
-while read -r run sp ref dtype; do
+for ref in $(awk '{print $3}' species.design | sort -u); do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$ref.fasta
-	cp out-denovo/$sp.pep out-denovo/orthofinder-in/$sp.fasta
-done < species.design
+done
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' pre-study/pep.faa > out-denovo/orthofinder-in/$outgroup.fasta
 orthofinder -f out-denovo/orthofinder-in -t $ncpu
 ```
@@ -287,11 +315,11 @@ columns: a sample gene goes to at most one cell, a cell holds at most one gene, 
 reference genes keep their rows, so the matrix has the same shape as in route 1:
 
 ```
-while read -r run sp ref dtype; do
+for ref in $(awk '{print $3}' species.design | sort -u); do
 	soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/OrthoFinder/Results_* \
 		design=species.design colnames=pre-study/rename.list ref=$ref \
 		out=out-denovo/$ref-orthomap.alignment.csv prefix=out-denovo/$ref-orthomap
-done < species.design
+done
 ```
 
 It also writes `<prefix>.orthomap.tsv`, the audit table: one row per attempted assignment, with
@@ -301,11 +329,47 @@ decided by competition, ties randomly). Watch the `unique` fraction: when most l
 `conflict`, the orthogroups do not resolve the copies and the copy labels of that sample mean
 nothing — a limit of the data, not of the tree step.
 
-**Step 5 — subgenome tree.** The same loop as route 1 step 4, reading
-`out-denovo/$ref-orthomap.alignment.csv` and building `out-denovo/$ref-subgenome.*`;
-`bash pipeline-denovo.sh species.design $ncpu` runs the whole route.
+**Step 5 — subgenome tree.** The same three commands as route 1 step 4, on the orthomap
+matrix; here the sample genes come from the de novo gene models:
+
+```
+for ref in $(awk '{print $3}' species.design | sort -u); do
+	ind=$(awk -F'\t' -v r="$ref" -v o="$outgroup" \
+		'{n=$2; if (n ~ ("^" r "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
+		out-denovo/$ref-orthomap.rename.list)
+	for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+		ind="$ind$(awk -F'\t' -v s="$sp" '$2 ~ ("^" s "_") {printf ",%s", $1}' \
+			out-denovo/$ref-orthomap.rename.list)"
+	done
+
+	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
+		pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
+	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
+		pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
+	for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+		cat out-denovo/orthofinder-in/$sp.fasta >> out-denovo/$ref-tree.pep.faa
+		cat out-denovo/$sp.cds >> out-denovo/$ref-tree.cds.fa
+	done
+
+	soi-wgdi genetrees out-denovo/$ref-orthomap.alignment.csv out-denovo/$ref-tree.pep.faa \
+		out-denovo/$ref-tree.cds.fa colnames=out-denovo/$ref-orthomap.rename.list \
+		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+		outdir=out-denovo/$ref-subgenome.tmp \
+		genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
+	astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
+		> out-denovo/$ref-subgenome.astral-hyb
+	trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
+		> out-denovo/$ref-subgenome.alignments.trimal
+	fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
+		| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
+done
+```
 
 ### Outputs ###
+
+The two routes produce files with the same names (`<reference>-subgenome.*`), so they write to
+different directories: route 1 to `out/`, route 2 to `out-denovo/`. Mixing them in one
+directory would silently overwrite trees.
 
 Route 1, in `out/`:
 
@@ -336,9 +400,9 @@ Trees are plain Newick. For figures use your own viewer (e.g.
 ### The example data ###
 
 `species.design` and `pre-study/` are a small real example: 58 gene families of the reference
-*Reevesia pubescens* (its two subgenomes `_R` and `_H`), and two samples whose full runs are
-downloaded in step 0 — *Triplochiton scleroxylon* (`SRR34069007`, WGS, 5.9 GB) and *Ungeria
-floribunda* (`ERR7599640`, target capture, 0.3 GB):
+*Reevesia pubescens* (its two subgenomes `_R` and `_H`), and two samples — *Triplochiton
+scleroxylon* (`SRR34069007`, WGS, 5.9 GB) and *Ungeria floribunda* (`ERR7599640`, target
+capture, 0.3 GB) — whose full runs are downloaded in step 0:
 
 ```
 bash src/get_reads.sh species.design reads 4
@@ -346,26 +410,27 @@ bash pipeline-refguided.sh species.design 8
 bash pipeline-denovo.sh species.design 8
 ```
 
-Measured on the downloaded runs (route 1):
+Measured with `bash pipeline-refguided.sh` on the downloaded runs:
 
-| | *Ungeria floribunda* | *Triplochiton scleroxylon* |
-|---|---|---|
-| subfamily of the sample | Helicteroideae (same as the reference) | Tilioideae |
-| library | HybSeq (target capture) | WGS |
-| mean depth per subgenome copy | 4.5x / 4.7x | — |
-| copies assembled (of 114 baits) | 42 | — |
-| gene trees in the subgenome tree | 27 | — |
-| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.00 / 0.9999 | — |
+| | *Ungeria floribunda* |
+|---|---|
+| subfamily of the sample | Helicteroideae (same as the reference) |
+| library | HybSeq (target capture) |
+| mean depth per subgenome copy | 4.5x / 4.7x |
+| copies assembled (of 114 baits) | 42 |
+| gene trees in the subgenome tree | 27 |
+| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.00 / 0.9999 |
 
-The sample from the same subfamily resolves cleanly into the two reference subgenomes, which
-is the signal this pipeline is built to detect.
+The sample from the same subfamily resolves cleanly into the two reference subgenomes, which is
+the signal this pipeline is built to detect. (*Triplochiton*, from another subfamily, is in the
+design and runs the same way; its numbers are not listed here yet.)
 
-Route 2 on the same HybSeq sample, for comparison: 26,921 contigs, 20 gene models, 42
-ortholog pairs of which only 6 are `unique` (36 `conflict`, copy decided randomly), and a tree
-in which the two sample copies stay sisters next to one reference subgenome — i.e. the copies
-are not resolved. With 58 families and a 2-copy reference most orthogroups contain both
-copies, so route 2 is the fallback, not the primary evidence; the `unique` fraction of its
-audit table tells you how much of the answer to trust.
+Route 2 on the same HybSeq sample, for comparison: 26,921 contigs, 20 gene models, 42 ortholog
+pairs of which only 6 are `unique` (36 `conflict`, copy decided randomly), and a tree in which
+the two sample copies stay sisters next to one reference subgenome — i.e. the copies are not
+resolved. With 58 families and a 2-copy reference most orthogroups contain both copies, so
+route 2 is the fallback, not the primary evidence; the `unique` fraction of its audit table
+tells you how much of the answer to trust.
 
 ### FAQ ###
 
@@ -375,19 +440,15 @@ audit table tells you how much of the answer to trust.
    one copy of every gene per subgenome, so each copy is one matrix column named
    `<species>_<subgenome>`; the labels are free (`_A/_B/_C` works the same way), only the
    `<species>_<subgenome>` shape matters.
-3. **Which column is used for what?** `col1` locates the reads (`reads/<col1>_{1,2}.fastq.gz`),
-   `col2` labels the output, `col3` selects the reference, `col4` only describes the library
-   (it decides nothing; it is read into the log so that a shallow or capture-limited result
-   can be recognised).
-4. **Few genes assembled (route 1).** Look at `<species>.<reference>.depth.tsv` and
+3. **Few genes assembled (route 1).** Look at `<species>.<reference>.depth.tsv` and
    `.depth.pdf` first: if the copies are covered very unevenly, the sample either does not
    share the duplication or its reads are too shallow for that reference. A target capture
    experiment covers only the captured genes.
-5. **Almost no `unique` assignments (route 2).** Several reference copies per orthogroup, so
+4. **Almost no `unique` assignments (route 2).** Several reference copies per orthogroup, so
    the copy is decided by competition and the labels are weak. Add gene families, use a closer
    reference, or use route 1.
-6. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out/`
+5. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out/`
    (or `out-denovo/`) for a clean run.
-7. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
+6. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
    `<prefix>-subgenome.tmp` by the chromosome of the reference genes in
    `all_species_gene.gff`; each part can be passed to `astral-hybrid` separately.

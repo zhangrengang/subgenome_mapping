@@ -62,9 +62,10 @@ do
 	##################################################################
 	##### renumber: protein and CDS share one id series ##############
 	##################################################################
-	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp.metaeuk.fas      > $out/$sp.pep
+	mkdir -p $out/orthofinder-in
+	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp.metaeuk.fas      > $out/orthofinder-in/$sp.fasta
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' $out/$sp.metaeuk.codon.fas > $out/$sp.cds
-	echo "   genes: $(grep -c '^>' $out/$sp.pep)"
+	echo "   genes: $(grep -c '^>' $out/orthofinder-in/$sp.fasta)"
 done < $design
 
 ##########################################################################
@@ -77,11 +78,6 @@ do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$ref.fasta
 done
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$outgroup.fasta
-while read -r sample sp ref dtype
-do
-	[ -n "${sample:-}" ] || continue
-	cp $out/$sp.pep $out/orthofinder-in/$sp.fasta
-done < $design
 orthofinder -f $out/orthofinder-in -t $ncpu
 
 ##########################################################################
@@ -120,7 +116,7 @@ do
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
 	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
 	do
-		cat $out/$sp.pep >> $out/$ref-tree.pep.faa
+		cat $out/orthofinder-in/$sp.fasta >> $out/$ref-tree.pep.faa
 		cat $out/$sp.cds >> $out/$ref-tree.cds.fa
 	done
 	bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
