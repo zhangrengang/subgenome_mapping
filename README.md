@@ -108,6 +108,18 @@ mamba activate OrthoIndex
 pip3 install .
 ```
 
+**Version.** These routes need `compmap`, `append_cols` and `orthomap`, which exist only in
+recent SOI (tested with **1.3.14**); the bioconda release (`soi` 1.3.0) predates them. Install
+from git as above, then check:
+
+```
+python3 -c "from soi.__version__ import version; from soi.WGDI import Alignment; \
+print(version, [n for n in ('compmap','append_cols','chrsplit','orthomap') if hasattr(Alignment,n)])"
+# 1.3.14 ['compmap', 'append_cols', 'chrsplit', 'orthomap']
+```
+
+If a name is missing, the installed SOI is too old and the corresponding step would fail.
+
 Not included there — everything the two routes need beyond the SOI environment, in one call:
 
 ```
@@ -337,6 +349,8 @@ while read -r run sp ref dtype; do
 		out-denovo/$sp/$sp.metaeuk.fas       > out-denovo/$sp/$sp.pep
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
 		out-denovo/$sp/$sp.metaeuk.codon.fas > out-denovo/$sp/$sp.cds
+	# a symlink, not a hardlink: step 2 can be re-run and rewrite $sp.pep, and only the
+	# symlink follows the new file (a hardlink would silently keep the old inode)
 	ln -sf ../$sp/$sp.pep out-denovo/orthofinder-in/$sp.fasta
 done < species.design
 ```
