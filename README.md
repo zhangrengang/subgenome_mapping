@@ -91,24 +91,14 @@ mamba activate OrthoIndex
 pip3 install .
 ```
 
-Not included there, install into the same environment (route 1 and the trees):
+Not included there — everything the two routes need beyond the SOI environment, in one call:
 
 ```
-mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate
+mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate aster megahit metaeuk
 ```
 
-`astral-hybrid` comes from [ASTER](https://github.com/chaoszhang/ASTER) ("Accurate Species
-Tree EstimatoR"), which is a conda package too:
-
-```
-mamba install -n OrthoIndex -c bioconda aster
-```
-
-Route 2 additionally needs
-
-```
-mamba install -n OrthoIndex -c bioconda megahit metaeuk
-```
+`astral-hybrid` (the species tree step) is one of the [ASTER](https://github.com/chaoszhang/ASTER)
+binaries, shipped by the `aster` package.
 
 Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper) (it is what calls
 spades and exonerate, so install it as its own README says) and `src/retrieve_copies.py`
