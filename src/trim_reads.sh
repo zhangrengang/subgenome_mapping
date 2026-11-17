@@ -30,12 +30,12 @@ do
 	echo "== $run ($sp): fastp"
 	if [ -s "$r2" ]; then
 		fastp --in1 "$r1" --in2 "$r2" --out1 "$o1" --out2 "$o2" \
-			--html $readdir/${run}.fastp.html \
+			--html $readdir/${run}.fastp.html --json $readdir/${run}.fastp.json \
 			--cut_by_quality3 --cut_by_quality5 --n_base_limit 1 \
 			--length_required 60 --correction --thread $ncpu
 	else
 		fastp --in1 "$r1" --out1 "$o1" \
-			--html $readdir/${run}.fastp.html \
+			--html $readdir/${run}.fastp.html --json $readdir/${run}.fastp.json \
 			--cut_by_quality3 --cut_by_quality5 --n_base_limit 1 \
 			--length_required 60 --thread $ncpu
 	fi
