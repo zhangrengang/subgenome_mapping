@@ -97,20 +97,21 @@ Two conventions are used everywhere:
 
 ### Installation ###
 
-[SOI / OrthoIndex](https://github.com/zhangrengang/SOI#installation) provides `soi-wgdi` and
-the environment (mafft, trimal, iqtree, fasttree, newick_utils, orthofinder, blast, diamond…):
+Two sources, and they do not overlap: the conda environment gives the **tools**, while
+`soi-wgdi` itself is installed from the [SOI](https://github.com/zhangrengang/SOI) source tree
+(`pip3 install .`), not from conda.
 
 ```
 git clone https://github.com/zhangrengang/SOI.git
 cd SOI
-mamba env create -f OrthoIndex.yaml
+mamba env create -f OrthoIndex.yaml        # mafft, trimal, iqtree, orthofinder, blast, diamond…
 mamba activate OrthoIndex
-pip3 install .
+pip3 install .                             # soi-wgdi, from this checkout
 ```
 
-**Version.** These routes need `compmap`, `append_cols` and `orthomap`, which exist only in
-recent SOI (tested with **1.3.14**); the bioconda release (`soi` 1.3.0) predates them. Install
-from git as above, then check:
+The `soi` package on bioconda is a different, older snapshot and does not carry the subcommands
+used here (`compmap`, `append_cols`, `orthomap`), so it is not an alternative to the `pip3`
+step. Check the checkout you installed against these three names — this was tested with 1.3.14:
 
 ```
 python3 -c "from soi.__version__ import version; from soi.WGDI import Alignment; \
@@ -118,9 +119,7 @@ print(version, [n for n in ('compmap','append_cols','chrsplit','orthomap') if ha
 # 1.3.14 ['compmap', 'append_cols', 'chrsplit', 'orthomap']
 ```
 
-If a name is missing, the installed SOI is too old and the corresponding step would fail.
-
-Not included there — everything the two routes need beyond the SOI environment, in one call:
+Everything the two routes need beyond that environment, in one conda call:
 
 ```
 mamba install -n OrthoIndex -c bioconda bwa samtools spades exonerate aster megahit metaeuk
