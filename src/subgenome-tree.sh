@@ -80,7 +80,9 @@ fi
 ##########################################################################
 ##### 4. ML tree with IQ-TREE (GTR + ultrafast bootstrap 1000) ##########
 ##########################################################################
-iqtree2 -redo -s "${pre}.alignments.trimal" -mset GTR -B 1000 -T $ncpu \
+o=""
+[ -n "$root" ] && o="-o $root"
+iqtree2 -redo -s "${pre}.alignments.trimal" -mset GTR -B 1000 -T $ncpu $o \
 	-pre "${pre}.alignments.trimal.iqtree" \
 	|| { echo "ERROR: iqtree2 failed"; exit 1; }
 [ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }

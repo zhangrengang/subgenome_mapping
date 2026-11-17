@@ -261,7 +261,8 @@ while read -r run sp ref dtype; do
 	fasttree -nt -gtr out-refguided/$sp.$ref-subgenome.alignments.trimal \
 		| nw_reroot - $outgroup > out-refguided/$sp.$ref-subgenome.alignments.trimal.fasttree
 	iqtree2 -redo -s out-refguided/$sp.$ref-subgenome.alignments.trimal \
-		-mset GTR -B 1000 -T $ncpu -pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
+		-mset GTR -B 1000 -T $ncpu -o $outgroup \
+		-pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
 done < species.design
 ```
 
@@ -374,7 +375,8 @@ trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
 fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
 	| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
 iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
-	-mset GTR -B 1000 -T $ncpu -pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
+	-mset GTR -B 1000 -T $ncpu -o $outgroup \
+	-pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
 ```
 
 
