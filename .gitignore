@@ -1,0 +1,6 @@
+out/
+out-denovo/
+.build/
+__pycache__/
+*.pyc
+nohup.out
