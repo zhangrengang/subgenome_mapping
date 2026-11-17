@@ -3,7 +3,7 @@
 #
 # usage:
 #   bash src/subgenome-tree.sh <alignment.csv> <rename.list> <pep.fa> <cds.fa> \
-#        <outprefix> <indice> [root] [ncpu] [max_missing] [tree_from]
+#        <outprefix> <indice> [root] [max_missing] [ncpu] [tree_from]
 #
 #   alignment.csv : matrix whose columns are subgenome copies (one row per gene family)
 #   rename.list   : column-name table of that matrix (1-based index <TAB> name)
@@ -29,8 +29,8 @@ cds=$4
 pre=$5
 indice=${6:-}
 root=${7:-}
-ncpu=${8:-8}
-max_missing=${9:-0.5}
+max_missing=${8:-0.5}
+ncpu=${9:-8}
 tree_from=${10:-pep}
 
 # positional form: <indice> [root] [max_missing] [ncpu] [tree_from]; keep them numeric
