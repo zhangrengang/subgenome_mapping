@@ -147,11 +147,9 @@ while read -r run sp ref dtype; do
 done < species.design
 ```
 
-The options are the ones used for the project this pipeline comes from: cut the first/last
-bases while quality ≤ 3, drop reads containing any N, require ≥ 60 bp after trimming, correct
-low-quality bases in overlapping pairs. Both routes read the `*_clean_{1,2}.fastq.gz` files;
-the raw downloads stay next to them. `src/get_reads.sh` and `src/trim_reads.sh` are these two
-loops plus a "already done, skip" guard.
+Both routes read the `*_clean_{1,2}.fastq.gz` files; the raw downloads stay next to them.
+`src/get_reads.sh` and `src/trim_reads.sh` are these two loops plus an "already done, skip"
+guard.
 
 With the example design that gives `reads/SRR34069007_clean_{1,2}.fastq.gz` (WGS, 5.9 GB
 downloaded) and `reads/ERR7599640_clean_{1,2}.fastq.gz` (target capture, 0.3 GB).
