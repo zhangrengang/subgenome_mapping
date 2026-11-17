@@ -51,8 +51,8 @@ SRR34069007	Triplochiton_scleroxylon	Reevesia_pubescens	WGS
 ERR7599640	Ungeria_floribunda	Reevesia_pubescens	HybSeq
 ```
 
-1. **col1, run accession** — locates the reads at ENA/NCBI. If you already have clean reads,
-   put them as `reads/<col1>_1.fastq.gz` and `reads/<col1>_2.fastq.gz` and skip Step 0.
+1. **col1, run accession** — locates the reads at ENA/NCBI. If you already have filtered reads,
+   name them `reads/<col1>_clean_1.fastq.gz` and `_clean_2.fastq.gz` and skip Step 0 entirely.
 2. **col2, species id** — the label of this sample in the output. Matrix columns become
    `<species id>_<subgenome>`; de novo gene ids become `<species id>|g000001`. A species
    sequenced twice needs two ids (`_WGS`, `_1`, `_2`).
@@ -151,8 +151,10 @@ Both routes read the `*_clean_{1,2}.fastq.gz` files; the raw downloads stay next
 `src/get_reads.sh` and `src/trim_reads.sh` are these two loops plus an "already done, skip"
 guard.
 
-With the example design that gives `reads/SRR34069007_clean_{1,2}.fastq.gz` (WGS, 5.9 GB
-downloaded) and `reads/ERR7599640_clean_{1,2}.fastq.gz` (target capture, 0.3 GB).
+With the example design that gives `reads/SRR34069007_clean_{1,2}.fastq.gz` (WGS: 7.2 Gb + 6.7 Gb
+download) and `reads/ERR7599640_clean_{1,2}.fastq.gz` (target capture, 0.3 Gb). Loaded runs are
+large — if the reads are already filtered somewhere, link them as `*_clean_{1,2}.fastq.gz` and
+start from the routes.
 
 ### Route 1: reference-guided ###
 
