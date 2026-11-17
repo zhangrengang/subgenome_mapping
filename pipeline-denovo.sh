@@ -35,7 +35,7 @@ do
 	##################################################################
 	##### megahit ####################################################
 	##################################################################
-	megahit -1 $reads/${sample}_filter_R1.fastq.gz -2 $reads/${sample}_filter_R2.fastq.gz \
+	megahit -1 $reads/${sample}_1.fastq.gz -2 $reads/${sample}_2.fastq.gz \
 		-o $out/$sp-assembly -t $ncpu --min-contig-len 300
 	echo "   contigs: $(grep -c '^>' $out/$sp-assembly/final.contigs.fa)"
 done < $design

@@ -1,5 +1,6 @@
 out/
 out-denovo/
+reads/
 .build/
 __pycache__/
 *.pyc

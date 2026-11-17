@@ -10,7 +10,7 @@
 #
 # design.txt: 3 columns, no header, no comments:
 #   <sample_id>  <species_id>  <reference_species>
-#     sample_id  reads/<sample_id>_filter_R{1,2}.fastq.gz
+#     sample_id  run accession; reads/<sample_id>_{1,2}.fastq.gz (see src/get_reads.sh)
 #     species_id label of this sample; its new columns are <species_id>_<copy>
 #     reference  species whose copies are columns of pre-study/merged.alignment.csv
 #
@@ -44,10 +44,10 @@ do
 	# resulting bam only keeps the genes whose copies are all retained; the
 	# depth table says whether the copies are covered evenly
 	##################################################################
-	echo "== 1) compmap: $reads/${sample}_filter_R{1,2}.fastq.gz -> $ref copies"
+	echo "== 1) compmap: $reads/${sample}_{1,2}.fastq.gz -> $ref copies"
 	mkdir -p $out/$sp.$ref
 	soi-wgdi compmap $pre/merged.alignment.csv $pre/cds.fa \
-		$reads/${sample}_filter_R1.fastq.gz $reads/${sample}_filter_R2.fastq.gz \
+		$reads/${sample}_1.fastq.gz $reads/${sample}_2.fastq.gz \
 		colnames=$pre/rename.list ref=$ref prefix=$out/$sp.$ref/$sp.$ref ncpu=$ncpu
 
 	##################################################################

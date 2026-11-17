@@ -1,2 +1,2 @@
-Triplochiton_scleroxylon	Triplochiton_scleroxylon	Reevesia_pubescens
-Ungeria_floribunda	Ungeria_floribunda	Reevesia_pubescens
+SRR34069007	Triplochiton_scleroxylon	Reevesia_pubescens
+ERR7599640	Ungeria_floribunda	Reevesia_pubescens
