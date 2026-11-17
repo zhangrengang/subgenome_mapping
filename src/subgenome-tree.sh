@@ -12,7 +12,7 @@
 #   indice        : columns to keep, 1-based, e.g. 2,3,5,6 ; empty = all columns
 #   root          : outgroup name used by ASTRAL --root and to reroot the ML tree
 #   max_missing   : missing data allowed per gene family (default 0.5)
-#   tree_from     : cds (codon-aware alignment, default) or pep (protein only)
+#   tree_from     : pep (protein alignment, default -- same as the source project) or cds
 #
 # outputs:
 #   <outprefix>.genetrees      one Newick per gene family
@@ -32,12 +32,16 @@ indice=${6:-}
 root=${7:-}
 ncpu=${8:-8}
 max_missing=${9:-0.5}
-tree_from=${10:-cds}
+tree_from=${10:-pep}
 
 [ -s "$aln" ]      || { echo "ERROR: no alignment file $aln"; exit 1; }
 [ -s "$colnames" ] || { echo "ERROR: no colnames file $colnames"; exit 1; }
 [ -s "$pep" ]      || { echo "ERROR: no pep file $pep"; exit 1; }
-[ -s "$cds" ]      || { echo "ERROR: no cds file $cds"; exit 1; }
+if [ "$tree_from" = "cds" ]; then
+	[ -s "$cds" ] || { echo "ERROR: no cds file $cds (tree_from=cds needs codons)"; exit 1; }
+else
+	[ -s "$cds" ] || cds=$pep      # protein trees do not read the CDS; any file will do
+fi
 
 tmpd=${pre}.tmp
 mkdir -p "$tmpd"
@@ -69,11 +73,14 @@ grep -o "^Score: .*" "${pre}.astral-hyb.err" | head -1
 ##########################################################################
 trimal -in "${pre}.alignments" -gappyout > "${pre}.alignments.trimal" \
 	|| { echo "ERROR: trimal failed"; exit 1; }
+# protein alignment -> fasttree default model (LG); nucleotide -> -nt -gtr
+ft=""
+[ "$tree_from" = "cds" ] && ft="-nt -gtr"
 if [ -n "$root" ]; then
-	fasttree -nt -gtr "${pre}.alignments.trimal" | nw_reroot - "$root" > "${pre}.alignments.trimal.fasttree" \
+	fasttree $ft "${pre}.alignments.trimal" | nw_reroot - "$root" > "${pre}.alignments.trimal.fasttree" \
 		|| { echo "ERROR: fasttree/nw_reroot failed"; exit 1; }
 else
-	fasttree -nt -gtr "${pre}.alignments.trimal" > "${pre}.alignments.trimal.fasttree" \
+	fasttree $ft "${pre}.alignments.trimal" > "${pre}.alignments.trimal.fasttree" \
 		|| { echo "ERROR: fasttree failed"; exit 1; }
 fi
 
@@ -82,7 +89,9 @@ fi
 ##########################################################################
 o=""
 [ -n "$root" ] && o="-o $root"
-iqtree2 -redo -s "${pre}.alignments.trimal" -mset GTR -B 1000 -T $ncpu $o \
+mset=JTT
+[ "$tree_from" = "cds" ] && mset=GTR
+iqtree2 -redo -s "${pre}.alignments.trimal" -mset $mset -B 1000 -T $ncpu $o \
 	-pre "${pre}.alignments.trimal.iqtree" \
 	|| { echo "ERROR: iqtree2 failed"; exit 1; }
 [ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }

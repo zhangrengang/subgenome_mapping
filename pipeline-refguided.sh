@@ -88,12 +88,10 @@ do
 		' $out/$sp.$ref-appended.rename.list)
 	echo "   columns: $ind"
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$sp.$ref-tree.pep.faa
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$sp.$ref-tree.cds.fa
 	cat $out/$sp.$ref.pep >> $out/$sp.$ref-tree.pep.faa
-	cat $out/$sp.$ref.cds >> $out/$sp.$ref-tree.cds.fa
 	bash src/subgenome-tree.sh $out/$sp.$ref-appended.alignment.csv $out/$sp.$ref-appended.rename.list \
-		$out/$sp.$ref-tree.pep.faa $out/$sp.$ref-tree.cds.fa \
-		$out/$sp.$ref-subgenome "$ind" $outgroup $ncpu
+		$out/$sp.$ref-tree.pep.faa $out/$sp.$ref-tree.pep.faa \
+		$out/$sp.$ref-subgenome "$ind" $outgroup $ncpu pep
 done < $design
 
 ##########################################################################
@@ -126,15 +124,13 @@ if [ "$ns" -ge 2 ]; then
 	ind=$(seq -s, 2 $(wc -l < $cols))
 	echo "   columns: $ind"
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
 	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
 	do
 		cat $out/$sp.$ref.pep >> $out/$ref-tree.pep.faa
-		cat $out/$sp.$ref.cds >> $out/$ref-tree.cds.fa
 	done
 	bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
-		$out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
-		$out/$ref-subgenome "$ind" $outgroup $ncpu
+		$out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
+		$out/$ref-subgenome "$ind" $outgroup $ncpu pep
 else
 	echo "== combined tree: only $ns sample(s) for $ref, skipped"
 fi

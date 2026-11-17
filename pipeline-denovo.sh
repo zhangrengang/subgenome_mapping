@@ -110,11 +110,9 @@ cols=$out/$ref-orthomap.rename.list
 ind=$(seq -s, 2 $(wc -l < $cols))
 echo "   columns: $ind"
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/cds.fa > $out/$ref-tree.cds.fa
 cat $(ls $out/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> $out/$ref-tree.pep.faa
-cat $out/*.cds >> $out/$ref-tree.cds.fa
-bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.cds.fa \
-	$out/$ref-subgenome "$ind" $outgroup $ncpu
+bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
+	$out/$ref-subgenome "$ind" $outgroup $ncpu pep
 
 echo
 echo "ALL DONE"

@@ -238,15 +238,12 @@ while read -r run sp ref dtype; do
 
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 		pre-study/pep.faa > out-refguided/$sp.$ref-tree.pep.faa
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/cds.fa > out-refguided/$sp.$ref-tree.cds.fa
 	cat out-refguided/$sp.$ref.pep >> out-refguided/$sp.$ref-tree.pep.faa
-	cat out-refguided/$sp.$ref.cds >> out-refguided/$sp.$ref-tree.cds.fa
 
 	# 4a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
 	soi-wgdi genetrees out-refguided/$sp.$ref-appended.alignment.csv out-refguided/$sp.$ref-tree.pep.faa \
-		out-refguided/$sp.$ref-tree.cds.fa colnames=out-refguided/$sp.$ref-appended.rename.list \
-		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+		out-refguided/$sp.$ref-tree.pep.faa colnames=out-refguided/$sp.$ref-appended.rename.list \
+		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
 		outdir=out-refguided/$sp.$ref-subgenome.tmp \
 		genetrees=out-refguided/$sp.$ref-subgenome.genetrees alignments=out-refguided/$sp.$ref-subgenome.alignments
 
@@ -258,10 +255,10 @@ while read -r run sp ref dtype; do
 	#     fasttree as a quick check and iqtree with ultrafast bootstrap as the real ML tree
 	trimal -in out-refguided/$sp.$ref-subgenome.alignments -gappyout \
 		> out-refguided/$sp.$ref-subgenome.alignments.trimal
-	fasttree -nt -gtr out-refguided/$sp.$ref-subgenome.alignments.trimal \
+	fasttree out-refguided/$sp.$ref-subgenome.alignments.trimal \
 		| nw_reroot - $outgroup > out-refguided/$sp.$ref-subgenome.alignments.trimal.fasttree
 	iqtree2 -redo -s out-refguided/$sp.$ref-subgenome.alignments.trimal \
-		-mset GTR -B 1000 -T $ncpu -o $outgroup \
+		-mset JTT -B 1000 -T $ncpu -o $outgroup \
 		-pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
 done < species.design
 ```
@@ -284,9 +281,7 @@ annotation), or when the sample is too divergent for the baits.
 The three steps are separable: if you already have an assembly, put it at
 `out-denovo/<species>/final.contigs.fa` and start at step 2 (annotation); if you already have
 gene models, write the proteins to `out-denovo/<species>/<species>.pep` (ids `<species>|g…`),
-link them into `out-denovo/orthofinder-in/<species>.fasta`, put the matching CDS at
-`out-denovo/<species>/<species>.cds` (the tree is built from codons, so CDS and protein must
-be the same genes in the same order) and start at step 3 (OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
+link them into `out-denovo/orthofinder-in/<species>.fasta`, and start at step 3 (OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
 only the captured genes, so its assembly — and everything downstream — is limited to them.
 
 **Step 1 — assembly.**
@@ -360,23 +355,20 @@ ind=$(seq -s, 2 $(wc -l < $cols))
 
 awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
 	pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
-awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-	pre-study/cds.fa > out-denovo/$ref-tree.cds.fa
 cat $(ls out-denovo/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> out-denovo/$ref-tree.pep.faa
-cat out-denovo/*/*.cds >> out-denovo/$ref-tree.cds.fa
 
-soi-wgdi genetrees $aln $cols out-denovo/$ref-tree.pep.faa out-denovo/$ref-tree.cds.fa \
-	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=cds \
+soi-wgdi genetrees $aln $cols out-denovo/$ref-tree.pep.faa out-denovo/$ref-tree.pep.faa \
+	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
 	outdir=out-denovo/$ref-subgenome.tmp \
 	genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
 astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
 	> out-denovo/$ref-subgenome.astral-hyb
 trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
 	> out-denovo/$ref-subgenome.alignments.trimal
-fasttree -nt -gtr out-denovo/$ref-subgenome.alignments.trimal \
+fasttree out-denovo/$ref-subgenome.alignments.trimal \
 	| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
 iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
-	-mset GTR -B 1000 -T $ncpu -o $outgroup \
+	-mset JTT -B 1000 -T $ncpu -o $outgroup \
 	-pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
 ```
 
@@ -396,7 +388,7 @@ Route 1, in `out-refguided/`:
 <species>.<reference>-appended.*                 matrix with this sample's columns
 <species>.<reference>-subgenome.genetrees        one tree per gene family
 <species>.<reference>-subgenome.astral-hyb       ASTRAL-hybrid subgenome tree
-<species>.<reference>-subgenome.alignments*      concatenation (+ .trimal.fasttree = quick ML,
+<species>.<reference>-subgenome.alignments*      protein concatenation (+ .trimal.fasttree = quick ML,
                                                 .trimal.iqtree.treefile = ML with bootstrap)
 <reference>-subgenome.*                          the same trees for all samples of this reference
 ```
