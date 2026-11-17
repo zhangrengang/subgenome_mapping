@@ -85,7 +85,7 @@ Two conventions are used everywhere:
 ### Installation ###
 
 [SOI / OrthoIndex](https://github.com/zhangrengang/SOI#installation) provides `soi-wgdi` and
-the environment (mafft, trimal, iqtree, orthofinder, blast, diamond…):
+the environment (mafft, trimal, iqtree, fasttree, newick_utils, orthofinder, blast, diamond…):
 
 ```
 git clone https://github.com/zhangrengang/SOI.git
@@ -251,12 +251,18 @@ while read -r run sp ref dtype; do
 	astral-hybrid --root $outgroup -t 8 -i out-refguided/$sp.$ref-subgenome.genetrees \
 		> out-refguided/$sp.$ref-subgenome.astral-hyb
 
-	# 4c. ML tree on the concatenation: gappyout trimming, then iqtree (rooted at the outgroup)
+	# 4c. ML tree on the concatenation (gappyout first). fasttree and iqtree answer the
+	#     same question from the same alignment -- run ONE of them: fasttree takes minutes,
+	#     iqtree with 1000 ultrafast bootstraps is the one to report
 	trimal -in out-refguided/$sp.$ref-subgenome.alignments -gappyout \
 		> out-refguided/$sp.$ref-subgenome.alignments.trimal
+	#   iqtree (default in src/subgenome-tree.sh, MLTREE=iqtree):
 	iqtree2 -redo -s out-refguided/$sp.$ref-subgenome.alignments.trimal \
 		-mset JTT -B 1000 -T $ncpu -o $outgroup \
 		-pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
+	#   ... or fasttree instead (MLTREE=fasttree):
+	#   fasttree out-refguided/$sp.$ref-subgenome.alignments.trimal \
+	#	| nw_reroot - $outgroup > out-refguided/$sp.$ref-subgenome.alignments.trimal.fasttree
 done < species.design
 ```
 
@@ -362,9 +368,12 @@ astral-hybrid --root $outgroup -t 8 -i out-denovo/$ref-subgenome.genetrees \
 	> out-denovo/$ref-subgenome.astral-hyb
 trimal -in out-denovo/$ref-subgenome.alignments -gappyout \
 	> out-denovo/$ref-subgenome.alignments.trimal
+# pick one: iqtree (below) or fasttree
 iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
 	-mset JTT -B 1000 -T $ncpu -o $outgroup \
 	-pre out-denovo/$ref-subgenome.alignments.trimal.iqtree
+# fasttree out-denovo/$ref-subgenome.alignments.trimal \
+#	| nw_reroot - $outgroup > out-denovo/$ref-subgenome.alignments.trimal.fasttree
 ```
 
 
@@ -383,7 +392,8 @@ Route 1, in `out-refguided/`:
 <species>.<reference>-appended.*                 matrix with this sample's columns
 <species>.<reference>-subgenome.genetrees        one tree per gene family
 <species>.<reference>-subgenome.astral-hyb       ASTRAL-hybrid subgenome tree
-<species>.<reference>-subgenome.alignments*      protein concatenation (+ .trimal.iqtree.treefile = ML tree)
+<species>.<reference>-subgenome.alignments*      protein concatenation (+ .trimal.iqtree.treefile,
+                                                or .trimal.fasttree if MLTREE=fasttree)
 <reference>-subgenome.*                          the same trees for all samples of this reference
 ```
 

@@ -74,16 +74,31 @@ trimal -in "${pre}.alignments" -gappyout > "${pre}.alignments.trimal" \
 	|| { echo "ERROR: trimal failed"; exit 1; }
 
 ##########################################################################
-##### 4. ML tree with IQ-TREE (GTR + ultrafast bootstrap 1000) ##########
+##### 4. ML tree on the concatenation ####################################
+# fasttree and iqtree answer the same question from the same alignment:
+# run ONE of them. fasttree is minutes, iqtree with 1000 ultrafast bootstraps
+# is the one to report; MLTREE=fasttree|iqtree selects (default iqtree).
 ##########################################################################
-o=""
-[ -n "$root" ] && o="-o $root"
-mset=JTT
-[ "$tree_from" = "cds" ] && mset=GTR
-iqtree2 -redo -s "${pre}.alignments.trimal" -mset $mset -B 1000 -T $ncpu $o \
-	-pre "${pre}.alignments.trimal.iqtree" \
-	|| { echo "ERROR: iqtree2 failed"; exit 1; }
-[ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }
+mltree=${MLTREE:-iqtree}
+if [ "$mltree" = "fasttree" ]; then
+	ft=""
+	[ "$tree_from" = "cds" ] && ft="-nt -gtr"
+	if [ -n "$root" ]; then
+		fasttree $ft "${pre}.alignments.trimal" | nw_reroot - "$root" > "${pre}.alignments.trimal.fasttree" \
+			|| { echo "ERROR: fasttree/nw_reroot failed"; exit 1; }
+	else
+		fasttree $ft "${pre}.alignments.trimal" > "${pre}.alignments.trimal.fasttree" \
+			|| { echo "ERROR: fasttree failed"; exit 1; }
+	fi
+else
+	o=""
+	[ -n "$root" ] && o="-o $root"
+	mset=JTT
+	[ "$tree_from" = "cds" ] && mset=GTR
+	iqtree2 -redo -s "${pre}.alignments.trimal" -mset $mset -B 1000 -T $ncpu $o \
+		-pre "${pre}.alignments.trimal.iqtree" \
+		|| { echo "ERROR: iqtree2 failed"; exit 1; }
+	[ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }
+fi
 
-ls -la "${pre}.genetrees" "${pre}.astral-hyb" "${pre}.alignments" \
-	"${pre}.alignments.trimal.iqtree.treefile"
+ls -la "${pre}.genetrees" "${pre}.astral-hyb" "${pre}.alignments"
