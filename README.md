@@ -282,10 +282,11 @@ you want genes that are not limited to the reference baits (the sample's own ass
 annotation), or when the sample is too divergent for the baits.
 
 The three steps are separable: if you already have an assembly, put it at
-`out-denovo/<species>-assembly/final.contigs.fa` and start at step 2 (annotation); if you
-already have gene models, write them as `out-denovo/orthofinder-in/<species>.fasta`
-(proteins, ids `<species>|g…`) plus `out-denovo/<species>.cds` and start at step 3
-(OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
+`out-denovo/<species>/final.contigs.fa` and start at step 2 (annotation); if you already have
+gene models, write the proteins to `out-denovo/<species>/<species>.pep` (ids `<species>|g…`),
+link them into `out-denovo/orthofinder-in/<species>.fasta`, put the matching CDS at
+`out-denovo/<species>/<species>.cds` (the tree is built from codons, so CDS and protein must
+be the same genes in the same order) and start at step 3 (OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
 only the captured genes, so its assembly — and everything downstream — is limited to them.
 
 **Step 1 — assembly.**
