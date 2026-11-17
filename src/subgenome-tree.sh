@@ -18,7 +18,6 @@
 #   <outprefix>.genetrees      one Newick per gene family
 #   <outprefix>.astral-hyb     ASTRAL-hybrid species tree
 #   <outprefix>.alignments     concatenated alignment
-#   <outprefix>.alignments.trimal.fasttree   quick ML tree (trimal -gappyout + fasttree -nt -gtr)
 #   <outprefix>.alignments.trimal.iqtree.treefile   ML tree, GTR + 1000 ultrafast bootstrap (iqtree2)
 #   <outprefix>.tmp/           per-family mafft/trimal alignments and gene trees
 set -u
@@ -69,20 +68,10 @@ astral-hybrid $opts -i "${pre}.genetrees" -t 8 > "${pre}.astral-hyb" 2> "${pre}.
 grep -o "^Score: .*" "${pre}.astral-hyb.err" | head -1
 
 ##########################################################################
-##### 3. ML tree on the concatenation (trimal + fasttree) ################
+##### 3. concatenation trimming (trimal) #################################
 ##########################################################################
 trimal -in "${pre}.alignments" -gappyout > "${pre}.alignments.trimal" \
 	|| { echo "ERROR: trimal failed"; exit 1; }
-# protein alignment -> fasttree default model (LG); nucleotide -> -nt -gtr
-ft=""
-[ "$tree_from" = "cds" ] && ft="-nt -gtr"
-if [ -n "$root" ]; then
-	fasttree $ft "${pre}.alignments.trimal" | nw_reroot - "$root" > "${pre}.alignments.trimal.fasttree" \
-		|| { echo "ERROR: fasttree/nw_reroot failed"; exit 1; }
-else
-	fasttree $ft "${pre}.alignments.trimal" > "${pre}.alignments.trimal.fasttree" \
-		|| { echo "ERROR: fasttree failed"; exit 1; }
-fi
 
 ##########################################################################
 ##### 4. ML tree with IQ-TREE (GTR + ultrafast bootstrap 1000) ##########
@@ -97,4 +86,4 @@ iqtree2 -redo -s "${pre}.alignments.trimal" -mset $mset -B 1000 -T $ncpu $o \
 [ -s "${pre}.alignments.trimal.iqtree.treefile" ] || { echo "ERROR: no iqtree treefile"; exit 1; }
 
 ls -la "${pre}.genetrees" "${pre}.astral-hyb" "${pre}.alignments" \
-	"${pre}.alignments.trimal.fasttree" "${pre}.alignments.trimal.iqtree.treefile"
+	"${pre}.alignments.trimal.iqtree.treefile"
