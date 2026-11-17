@@ -278,8 +278,8 @@ which is exactly the 4a–4c block.
 
 Here the sample is assembled and annotated on its own, and only then are its genes compared
 with the reference — instead of assembling it on the reference baits as in route 1. Use it when
-you want the sample's own gene models (its own introns, its own UTRs) or when the sample is too
-divergent for the baits.
+you want genes that are not limited to the reference baits (the sample's own assembly and
+annotation), or when the sample is too divergent for the baits.
 
 The three steps are separable: if you already have an assembly, put it at
 `out-denovo/<species>-assembly/final.contigs.fa` and start at step 2 (annotation); if you
