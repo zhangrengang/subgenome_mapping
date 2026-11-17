@@ -419,9 +419,10 @@ done < species.design
 
 **Step 2 — gene models.** MetaEuk predicts genes with the reference proteins as evidence, so
 the genes found are the ones that can be compared with the reference copies. Protein and CDS
-are then renumbered with one shared id series (`<species>|g000001`, `…|g000002`, the same order
-in both files) and stay in the sample's directory; the protein is linked into the OrthoFinder
-input directory, one file per species named after the species:
+are then renumbered with one shared id series: one predicted gene carries the same id in both
+files (`<species>|g000001` in `.pep` and in `.cds`), and the two files list the genes in the same
+order. They stay in the sample's directory; the protein is linked into the OrthoFinder input
+directory, one file per species named after the species:
 
 ```
 while read -r run sp ref dtype; do
