@@ -428,21 +428,25 @@ bash pipeline-refguided.sh species.design 8
 bash pipeline-denovo.sh species.design 8
 ```
 
-Measured with `bash pipeline-refguided.sh` on the downloaded runs:
+Measured with `bash pipeline-refguided.sh` on the full design (594 baits = 297 families x R/H):
 
-| | *Ungeria floribunda* |
-|---|---|
-| subfamily of the sample | Helicteroideae (same as the reference) |
-| library | HybSeq (target capture) |
-| mean depth per subgenome copy | R 4.9x / H 5.2x |
-| copies assembled (of 594 baits) | 201 |
-| gene trees in the subgenome tree | 143 |
-| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, pp = 1.000 / 1.000 |
-| ML tree (iqtree, JTT on the protein concatenation, rooted at the outgroup) | same topology, bootstrap 100 / 100 |
+| | *Ungeria floribunda* | *Triplochiton scleroxylon* |
+|---|---|---|
+| subfamily of the sample | Helicteroideae (same as the reference) | Helicteroideae |
+| library | HybSeq (target capture) | WGS |
+| mean depth per subgenome copy | R 4.94x / H 5.25x | R 9.95x / H 14.70x |
+| copies assembled (of 594 baits) | 198 | 568 |
+| gene trees in the subgenome tree | 143 | 293 |
+| topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, both pp = 1.000 | `(Tri_R, Tri_H)`, pp = 1.000, attached to one reference subgenome |
 
-The sample from the same subfamily resolves cleanly into the two reference subgenomes, which is
-the signal this pipeline is built to detect. *Triplochiton* (also Helicteroideae, WGS) is in
-the design and runs the same way; its numbers are not listed here yet.
+The two samples behave differently in exactly the way this pipeline is meant to show: *Ungeria*
+resolves into the two reference subgenomes, *Triplochiton* keeps its two copies together. The
+combined tree of the same run:
+
+```
+(((Reevesia_R,Ungeria_R)1.000,((Triplochiton_R,Triplochiton_H)1.000,
+   (Ungeria_H,Reevesia_H)1.000)1.000),Theobroma_cacao);
+```
 
 Route 2 on the same sample (assembled and annotated on its own): 50 gene models, 36 gene trees,
 and of the 43 matrix cells filled for the sample only 6 families carry **both** copies (R 20,
