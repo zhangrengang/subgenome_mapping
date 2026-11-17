@@ -39,7 +39,7 @@ to them. Both routes write the same matrix format, so samples of both can end up
 
 ```mermaid
 flowchart TD
-    A["species.design: run accession, species id, reference, WGS|HybSeq"] --> B["src/get_reads.sh<br/>reads/RUN_1.fastq.gz, RUN_2.fastq.gz"]
+    A["species.design: run accession, species id, reference, WGS or HybSeq"] --> B["src/get_reads.sh<br/>reads/RUN_1.fastq.gz, RUN_2.fastq.gz"]
     B --> C["src/trim_reads.sh (fastp)<br/>reads/RUN_clean_1.fastq.gz, RUN_clean_2.fastq.gz"]
     C --> R1a
     C --> R2a
