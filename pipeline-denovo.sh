@@ -42,8 +42,13 @@ do
 	##################################################################
 	# per-sample directory: assembly and gene models live together
 	[ -e $out/$sp ] && rm -rf $out/$sp
-	megahit -1 $reads/${sample}_clean_1.fastq.gz -2 $reads/${sample}_clean_2.fastq.gz \
-		-o $out/$sp -t $ncpu
+	r1=$reads/${sample}_clean_1.fastq.gz
+	r2=$reads/${sample}_clean_2.fastq.gz
+	if [ -s "$r2" ]; then
+		megahit -1 $r1 -2 $r2 -o $out/$sp -t $ncpu
+	else
+		megahit -r $r1 -o $out/$sp -t $ncpu       # single-end
+	fi
 	echo "   contigs: $(grep -c '^>' $out/$sp/final.contigs.fa)"
 done < $design
 

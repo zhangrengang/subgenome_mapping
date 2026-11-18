@@ -87,6 +87,8 @@ ERR7599640	Ungeria_floribunda	Reevesia_pubescens	HybSeq
 
 1. **col1, run accession** — locates the reads at ENA/NCBI. If you already have filtered reads,
    name them `reads/<col1>_clean_1.fastq.gz` and `_clean_2.fastq.gz` and skip Step 0 entirely.
+   Single-end data is fine too: only `reads/<col1>_clean_1.fastq.gz` needs to exist, and every
+   step then runs on that one file.
 2. **col2, species id** — the label of this sample in the output. Matrix columns become
    `<species id>_<subgenome>`; de novo gene ids become `<species id>|g000001`. A species
    sequenced twice needs two ids (`_WGS`, `_1`, `_2`).
@@ -231,7 +233,7 @@ while read -r run sp ref dtype; do
 done < species.design
 ```
 
-Both routes read the `*_clean_{1,2}.fastq.gz` files; the raw downloads stay next to them.
+Single-end runs (one fastq) go through the same loop with `--in1/--out1` only; `src/trim_reads.sh` already does that. Both routes read the `*_clean_{1,2}.fastq.gz` files; the raw downloads stay next to them.
 `src/get_reads.sh` and `src/trim_reads.sh` are these two loops plus an "already done, skip"
 guard.
 
@@ -259,8 +261,11 @@ the genes whose copies are all present are written into the bam:
 
 ```
 while read -r run sp ref dtype; do
+	r1=reads/${run}_clean_1.fastq.gz
+	r2=reads/${run}_clean_2.fastq.gz
+	[ -s "$r2" ] || r2=                 # single-end: one read file, mates stay unmapped
 	soi-wgdi compmap pre-study/merged.alignment.csv pre-study/cds.fa \
-		reads/${run}_1.fastq.gz reads/${run}_2.fastq.gz \
+		$r1 $r2 \
 		colnames=pre-study/rename.list ref=$ref \
 		prefix=out-refguided/$sp.$ref/$sp.$ref ncpu=$ncpu
 done < species.design
@@ -410,8 +415,12 @@ only the captured genes, so its assembly — and everything downstream — is li
 
 ```
 while read -r run sp ref dtype; do
-	megahit -1 reads/${run}_1.fastq.gz -2 reads/${run}_2.fastq.gz \
-		-o out-denovo/$sp-assembly -t $ncpu
+	megahit_r1=reads/${run}_clean_1.fastq.gz
+	if [ -s reads/${run}_clean_2.fastq.gz ]; then
+		megahit -1 $megahit_r1 -2 reads/${run}_clean_2.fastq.gz -o out-denovo/$sp -t $ncpu
+	else
+		megahit -r $megahit_r1 -o out-denovo/$sp -t $ncpu        # single-end
+	fi
 done < species.design
 ```
 

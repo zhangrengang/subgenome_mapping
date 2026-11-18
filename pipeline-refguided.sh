@@ -48,8 +48,11 @@ do
 	##################################################################
 	echo "== 1) compmap: $reads/${sample}_clean_{1,2}.fastq.gz -> $ref copies"
 	mkdir -p $out/$sp.$ref
+	r1=$reads/${sample}_clean_1.fastq.gz
+	r2=$reads/${sample}_clean_2.fastq.gz
+	[ -s "$r2" ] || r2=          # single-end: compmap takes one read file
 	soi-wgdi compmap $pre/merged.alignment.csv $pre/cds.fa \
-		$reads/${sample}_clean_1.fastq.gz $reads/${sample}_clean_2.fastq.gz \
+		$r1 $r2 \
 		colnames=$pre/rename.list ref=$ref prefix=$out/$sp.$ref/$sp.$ref ncpu=$ncpu
 
 	##################################################################
