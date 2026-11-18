@@ -29,7 +29,7 @@ recovers the reference's subgenomes. Two routes do (i) differently:
 
 | route | idea | script |
 |---|---|---|
-| 1, reference-guided | reads compete for all copies of the reference; a read is assigned to at most one copy, and that copy is then assembled from those reads | `pipeline-refguided.sh` |
+| 1, reference-guided | reads compete for all copies of the reference; a read is assigned to at most one copy, that copy is assembled from those reads, and `baitmap` carries the result into the matrix | `pipeline-refguided.sh` |
 | 2, de novo | the sample is assembled and annotated on its own, and its genes are assigned to the copies by orthology | `pipeline-denovo.sh` |
 
 Route 1 keeps the depth information and is the route that tests the duplication. Route 2 does
@@ -47,7 +47,7 @@ flowchart TD
     subgraph R1["Route 1: reference-guided"]
         R1a["compmap<br/>every read competes for all copies of the reference"]
         R1b["HybPiper<br/>one assembly per copy, from that copy's reads"]
-        R1c["append_cols<br/>those copies become new matrix columns"]
+        R1c["baitmap<br/>those copies become new matrix columns"]
         R1a --> R1b --> R1c
     end
 
@@ -144,13 +144,13 @@ pip3 install .                             # soi-wgdi, from this checkout
 ```
 
 The `soi` package on bioconda is a different, older snapshot and does not carry the subcommands
-used here (`compmap`, `append_cols`, `orthomap`), so it is not an alternative to the `pip3`
+used here (`compmap`, `baitmap`, `orthomap`), so it is not an alternative to the `pip3`
 step. Check the checkout you installed against these three names — this was tested with 1.3.14:
 
 ```
 python3 -c "from soi.__version__ import version; from soi.WGDI import Alignment; \
-print(version, [n for n in ('compmap','append_cols','chrsplit','orthomap') if hasattr(Alignment,n)])"
-# 1.3.14 ['compmap', 'append_cols', 'chrsplit', 'orthomap']
+print(version, [n for n in ('compmap','baitmap','chrsplit','orthomap') if hasattr(Alignment,n)])"
+# 1.3.15 ['compmap', 'baitmap', 'chrsplit', 'orthomap']
 ```
 
 Everything the two routes need beyond that environment, in one conda call:
@@ -167,7 +167,7 @@ below — not pinned, so if your run disagrees, pin these first:
 
 | tool | tested with | | tool | tested with |
 |---|---|---|---|---|
-| SOI (`soi-wgdi`) | 1.3.14 | | MEGAHIT | 1.2.9 |
+| SOI (`soi-wgdi`) | 1.3.15 | | MEGAHIT | 1.2.9 |
 | bwa | 0.7.17-r1188 | | MetaEuk | bba0d80 |
 | samtools | 1.17 | | mafft | 7.515 |
 | SPAdes (called by HybPiper) | 3.13.1 | | trimAl | 1.4.rev15 |
@@ -321,19 +321,19 @@ the machine the numbers above come from: the command reached 2.x's dependency ch
 there, so the steps before it (bam reuse, output layout) are read from the 2.3.4 source and not
 from a completed run.
 
-**Step 3 — append the sample as new columns.** One column per copy of the reference; a cell is
+**Step 3 — `baitmap`: put the sample into the matrix.** One column per copy of the reference; a cell is
 filled only where the sample has a sequence for that gene family and that copy:
 
 ```
 while read -r run sp ref dtype; do
-	soi-wgdi append_cols pre-study/merged.alignment.csv out-refguided/$sp.$ref.cds $sp \
+	soi-wgdi baitmap pre-study/merged.alignment.csv out-refguided/$sp.$ref.cds $sp \
 		colnames=pre-study/rename.list prefix=out-refguided/$sp.$ref-appended
 done < species.design
 ```
 
 There is no `ref=` here, and none is needed: the reference was fixed one step earlier. `compmap`
 wrote every bait id as `<ref>-<column>_XG<row>`, so each retrieved sequence carries the column
-number of the copy it was assembled from; `append_cols` reads the part after the last `-`
+number of the copy it was assembled from; `baitmap` reads the part after the last `-`
 (`<column>_XG<row>`), puts the sequence into row *row* of a new column derived from
 `rename.list` line *column*, and names that column `<species id>_<subgenome>`. That is why the
 prefix has to be `<species>.<reference>` — the reference lives in the sequence ids, not in this

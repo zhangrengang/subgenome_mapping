@@ -75,8 +75,8 @@ do
 	##### 3. append the sample as new columns ########################
 	# one column per copy of the reference: <species_id>_<copy>
 	##################################################################
-	echo "== 3) append_cols: $sp -> new columns"
-	soi-wgdi append_cols $pre/merged.alignment.csv $out/$sp.$ref.cds $sp \
+	echo "== 3) baitmap: $sp -> new columns"
+	soi-wgdi baitmap $pre/merged.alignment.csv $out/$sp.$ref.cds $sp \
 		colnames=$pre/rename.list prefix=$out/$sp.$ref-appended
 
 	##################################################################
@@ -116,7 +116,7 @@ if [ "$ns" -ge 2 ]; then
 			ocsv=$out/$ref.pass$k.alignment.csv
 			ocol=$out/$ref.pass$k.rename.list
 		fi
-		soi-wgdi append_cols $aln $out/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
+		soi-wgdi baitmap $aln $out/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
 		aln=$ocsv
 		cols=$ocol
 	done
