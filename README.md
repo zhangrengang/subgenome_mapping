@@ -543,7 +543,7 @@ the two behaviours this pipeline is meant to separate. The combined tree of the 
 
 ```
 (((Reevesia_R,Ungeria_R)1.000,((Triplochiton_R,Triplochiton_H)1.000,
-   (Ungeria_H,Reevesia_H)1.000)1.000),Theobroma_cacao);
+   (Ungeria_H,Reevesia_H)1.000)1.000),Theobroma_cacao);     # lengths omitted, names shortened
 ```
 
 Route 2 on the same sample: 50 gene models, 36 gene trees, 43 filled cells (R 20 / H 23) of which
