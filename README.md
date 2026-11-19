@@ -101,7 +101,7 @@ The reference side is the directory `pre-study/`:
 
 | file | content |
 |---|---|
-| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -a`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty; how it is produced: https://github.com/zhangrengang/subgenome_phasing_example |
+| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -a`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty; it can be produced by the [subgenome_phasing pipeline](https://github.com/zhangrengang/subgenome_phasing_example) |
 | `rename.list` | column names of that matrix, line *n* = column *n*, name = the second field (the first is just a running number) |
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
