@@ -3,14 +3,14 @@
    * [What it does](#what-it-does)
    * [Input data](#input-data)
    * [Installation](#installation)
-   * [Step 0: get the reads](#step-0-get-the-reads)
+   * [Step 0: get and trim the reads](#step-0-get-and-trim-the-reads)
    * [Route 1: reference-guided](#route-1-reference-guided)
    * [Route 2: de novo](#route-2-de-novo)
    * [Outputs](#outputs)
    * [The example data](#the-example-data)
    * [FAQ](#faq)
 
-### What it does ###
+## What it does
 
 A polyploid lineage keeps several **subgenomes**: after a whole-genome duplication it carries
 two, three or five copies of most genes, one copy per subgenome. For one reference species
@@ -32,10 +32,9 @@ recovers the reference's subgenomes. Two routes do (i) differently:
 | 1, reference-guided | reads compete for all copies of the reference; a read is assigned to at most one copy, that copy is assembled from those reads, and `baitmap` carries the result into the matrix | `pipeline-refguided.sh` |
 | 2, de novo | the sample is assembled and annotated on its own, and its genes are assigned to the copies by orthology | `pipeline-denovo.sh` |
 
-Route 1 keeps the depth information and is the route that tests the duplication. Route 2 does
-not use the reference for assembly at all, only afterwards for the assignment; with target
-capture (HybSeq) reads its assembly covers only the captured genes, so the result is limited
-to them. Both routes write the same matrix format, so samples of both can end up in one tree.
+Route 1 keeps the per-copy depth, so it is the route that can test the duplication; route 2 never
+uses the reference for assembly, only for the assignment afterwards. Both write the same matrix
+format, so samples of both can end up in one tree.
 
 ```mermaid
 flowchart TD
@@ -67,15 +66,10 @@ flowchart TD
     S2 --> O
 ```
 
-Same start, same end: the routes differ only in how a sample gene is given its subgenome label —
-by competition over the reference copies (route 1) or by orthology after assembling the sample on
-its own (route 2).
+Each step below is a loop over `species.design`; the two `pipeline-*.sh` are those loops plus one
+combined tree per reference.
 
-Every step below is a loop over `species.design`, and the two `pipeline-*.sh` scripts are
-those loops in order plus one combined tree per reference. Read the steps to understand what
-happens; run the scripts when you have many samples.
-
-### Input data ###
+## Input data
 
 One file drives everything, `species.design`: four columns, TAB separated, **no header, no
 comments**, one line per sample:
@@ -123,15 +117,19 @@ One matrix = one reference species: `merged.alignment.csv` holds the copies of a
 reference, so a design run is per reference. Samples of another reference need their own matrix
 and their own run.
 
-Two conventions are used everywhere:
+Two naming conventions, and they are what the scripts themselves match on (not a requirement of
+OrthoFinder or the tree tools):
 
-- gene ids are `<species>|<gene id>` (the `|` separator is what OrthoFinder and the tree tools
-  expect);
+- gene ids are `<species>|<gene id>` — the reference and outgroup proteins are filtered with
+  `^>(<col3>|<outgroup>)\|`, so ids joined by `_` select nothing and the tree step silently gets
+  an empty pep;
 - a copy column is named `<species>_<subgenome>`, e.g. `Reevesia_pubescens_R` and
-  `Reevesia_pubescens_H`; a species without copies (the outgroup, `Theobroma_cacao`) is a
-  single column. The labels are free — `_A/_B/_C` works the same way.
+  `Reevesia_pubescens_H`. The species part is the name without its last `_<subgenome>`, and that
+  is how the tree step decides which columns belong to this reference and to this sample; only
+  the suffix is free (`_A/_B/_C` works the same way). A species without copies (the outgroup,
+  `Theobroma_cacao`) is a single column matched by its full name.
 
-### Installation ###
+## Installation
 
 Two sources, and they do not overlap: the conda environment gives the **tools**, while
 `soi-wgdi` itself is installed from the [SOI](https://github.com/zhangrengang/SOI) source tree
@@ -147,7 +145,7 @@ pip3 install .                             # soi-wgdi, from this checkout
 
 The `soi` package on bioconda is a different, older snapshot and does not carry the subcommands
 used here (`compmap`, `baitmap`, `orthomap`), so it is not an alternative to the `pip3`
-step. Check the checkout you installed against these three names — this was tested with 1.3.14:
+step. Check the checkout you installed against these three names (here: 1.3.15):
 
 ```
 python3 -c "from soi.__version__ import version; from soi.WGDI import Alignment; \
@@ -177,16 +175,15 @@ below — not pinned, so if your run disagrees, pin these first:
 | HybPiper | 1.2 | | OrthoFinder | 3.1.5 (2.x results are read too) |
 | ASTER (`astral-hybrid`) | v1.15.2.3 | | | |
 
-Two of them are worth watching: HybPiper 1.2 is python2 and was written against SPAdes 3.x, and
-OrthoFinder 3 writes `Orthologues/<sp>.tsv` while 2.x writes `Orthologues_<sp>/` — `orthomap`
-reads both, but the Results directory name contains the date, so always let the glob pick it.
+Three of them are worth watching: HybPiper 1.2 is python2 and was written against SPAdes 3.x;
+OrthoFinder 3 writes `Orthologues/<sp>.tsv` while 2.x writes `Orthologues_<sp>/` (`orthomap` reads
+both, and the Results directory carries a date — let the glob pick it); ASTER ≥1.25 calls the same
+weighted ASTRAL `wastral` and prints supports/branch lengths in another format.
 
-Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper), and here the version
-matters: these steps use the **1.x** scripts — `reads_first.py --bwa --no-blast`,
-`paralog_investigator.py`, and the per-gene `<prefix>/<gene>/<prefix>/sequences/` layout that
-`src/retrieve_copies.py` reads. HybPiper 2.x is a different program (`hybpiper assemble`, another
-output layout) and does not work here; the `hybpiper` package on conda starts at 2.x, so it is not
-an option either. Install 1.x from git, next to python2.7 + biopython:
+Route 1 also needs [HybPiper](https://github.com/mossmatters/HybPiper) **1.x** — conda ships only
+2.x, a different program. These steps use `reads_first.py --bwa --no-blast`,
+`paralog_investigator.py` and the per-gene `<prefix>/<gene>/<prefix>/sequences/` layout that
+`src/retrieve_copies.py` reads. Install 1.x from git, next to python2.7 + biopython:
 
 ```
 git clone https://github.com/mossmatters/HybPiper.git
@@ -202,7 +199,7 @@ exonerate come from the OrthoIndex environment on `PATH`.
 
 Step 0 uses only `curl`.
 
-### Step 0: get and trim the reads ###
+## Step 0: get and trim the reads
 
 Download — for each run in the design, ask ENA (the SRA mirror) for its fastq links and fetch
 them:
@@ -219,9 +216,7 @@ while read -r run sp ref dtype; do
 done < species.design
 ```
 
-Trim — adapters and low-quality 3' ends both break step 1 of route 1 (a read that should
-compete for a copy gets clipped) and the de novo assembly of route 2, so every run goes
-through fastp first:
+Trim — adapters and low-quality 3' ends break both routes, so every run goes through fastp:
 
 ```
 while read -r run sp ref dtype; do
@@ -242,7 +237,7 @@ download) and `reads/ERR7599640_clean_{1,2}.fastq.gz` (target capture, 0.3 Gb). 
 large — if the reads are already filtered somewhere, link them as `*_clean_{1,2}.fastq.gz` and
 start from the routes.
 
-### Route 1: reference-guided ###
+## Route 1: reference-guided
 
 The point of this route is that **no read is allowed to support two copies**. Everything else
 follows from that. Two variables are used by all steps below:
@@ -252,12 +247,10 @@ outgroup=Theobroma_cacao
 ncpu=8
 ```
 
-**Step 1 — competitive mapping.** All CDS of the reference species are used as baits, not only
-the genes that are complete in the reference: a read coming from one copy has to be able to
-compete with the other copies, otherwise a conserved gene would pile up on whichever copy
-happens to be in the bait set and the depth comparison would be meaningless. After mapping,
-only primary alignments are kept (a read pair lands on one reference gene at most), and only
-the genes whose copies are all present are written into the bam:
+**Step 1 — competitive mapping.** Every CDS of the reference is a bait, including the families
+that are incomplete there — a read has to compete with all copies, otherwise conserved genes pile
+up on whichever bait exists. Only primary alignments are kept (a read pair lands on one reference
+gene at most), and only genes whose copies are all present enter the bam:
 
 ```
 while read -r run sp ref dtype; do
@@ -299,32 +292,11 @@ done < species.design
 HybPiper must be started from the directory that *contains* `<prefix>/` and gets the bare
 directory name as `--prefix` — that is why the loop starts with `cd out-refguided`.
 
-HybPiper 2.x alternative (not what the numbers above were made with). 2.x has a single command
-instead of the two scripts, and it can reuse the bam from step 1 — not through the implicit
-`<prefix>/<prefix>.bam` convention of 1.x, but by starting at the second stage explicitly
-(`map_reads` → `distribute_reads` → `assemble_reads` → `extract_contigs`):
-
-```
-cd out-refguided
-hybpiper assemble -r ../reads/${run}_clean_1.fastq.gz ../reads/${run}_clean_2.fastq.gz \
-    -t_dna $sp.$ref/$sp.$ref.target.cds --bwa --start_from distribute_reads \
-    --prefix $sp.$ref --cpu $ncpu --no_intronerate
-hybpiper paralog_retriever $sp.$ref
-python3 ../src/retrieve_copies.py $sp.$ref
-```
-
-With `--start_from distribute_reads` plus `--bwa` it skips mapping and reads
-`<prefix>/<prefix>.bam`, i.e. exactly the file `compmap` wrote, so the "one read supports one
-copy" property is kept. Its output tree is also the same as 1.x
-(`<prefix>/<gene>/<prefix>/sequences/FNA|FAA/<gene>.FNA|FAA`, `genes_with_seqs.txt`,
-`paralogs/`), which is why `src/retrieve_copies.py` reads it unchanged.
-
-Requirements differ from 1.x: python ≥ 3.9, the `progressbar` and `pebble` packages, BBTools
-(`bbmap.sh`, `bbmerge.sh`) and **exonerate 2.4.0 specifically** — 2.x refuses to start on the
-exonerate 2.2.0 that 1.x works with. That last one is where the test of this variant stopped on
-the machine the numbers above come from: the command reached 2.x's dependency check and exited
-there, so the steps before it (bam reuse, output layout) are read from the 2.3.4 source and not
-from a completed run.
+HybPiper 2.x does the same job — `hybpiper assemble -t_dna $sp.$ref/$sp.$ref.target.cds --bwa
+--start_from distribute_reads --prefix $sp.$ref` reuses the same bam, and its output layout is
+unchanged, so `src/retrieve_copies.py` reads it as is. It is not the path these numbers come
+from: 2.x wants python ≥3.9, `progressbar`, `pebble`, BBTools and exonerate 2.4.0 specifically,
+and on this machine it stopped at that dependency check.
 
 **Step 3 — `baitmap`: put the sample into the matrix.** One column per copy of the reference; a cell is
 filled only where the sample has a sequence for that gene family and that copy:
@@ -336,13 +308,9 @@ while read -r run sp ref dtype; do
 done < species.design
 ```
 
-There is no `ref=` here, and none is needed: the reference was fixed one step earlier. `compmap`
-wrote every bait id as `<ref>-<column>_XG<row>`, so each retrieved sequence carries the column
-number of the copy it was assembled from; `baitmap` reads the part after the last `-`
-(`<column>_XG<row>`), puts the sequence into row *row* of a new column derived from
-`rename.list` line *column*, and names that column `<species id>_<subgenome>`. That is why the
-prefix has to be `<species>.<reference>` — the reference lives in the sequence ids, not in this
-call.
+No `ref=` is needed: `compmap` wrote every bait id as `<ref>-<column>_XG<row>`, so `baitmap` takes
+the part after the last `-` — `<column>_XG<row>` — and puts the sequence into row *row* of the new
+column built from `rename.list` line *column*. The reference is in the ids, not in this call.
 
 Outputs `out-refguided/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
 `<species>_<subgenome>` columns, named after the copies of the reference.
@@ -356,8 +324,10 @@ cross-check. All of it is written out below, no wrapper:
 
 ```
 while read -r run sp ref dtype; do
+	# a column's species = its name without the last _<subgenome>; ids contain _ themselves, so a
+	# ^<species>_ prefix test would also take Reevesia_pubescens_laxa_R or X_1 columns
 	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" \
-		'{n=$2; if (n ~ ("^" r "_") || n ~ ("^" s "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
+		'{n=$2; sp=n; sub(/_[^_]*$/,"",sp); if (sp == r || sp == s || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
 		out-refguided/$sp.$ref-appended.rename.list)
 
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
@@ -366,7 +336,7 @@ while read -r run sp ref dtype; do
 
 	# 4a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
 	soi-wgdi genetrees out-refguided/$sp.$ref-appended.alignment.csv out-refguided/$sp.$ref-tree.pep.faa \
-		out-refguided/$sp.$ref-tree.pep.faa colnames=out-refguided/$sp.$ref-appended.rename.list \
+		colnames=out-refguided/$sp.$ref-appended.rename.list \
 		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
 		outdir=out-refguided/$sp.$ref-subgenome.tmp \
 		genetrees=out-refguided/$sp.$ref-subgenome.genetrees alignments=out-refguided/$sp.$ref-subgenome.alignments
@@ -398,18 +368,21 @@ sample's copies do not resolve into the reference subgenomes.
 reference in it (`out-refguided/<reference>-subgenome.*`); it calls `src/subgenome-tree.sh`,
 which is exactly the 4a–4c block.
 
-### Route 2: de novo ###
+## Route 2: de novo
 
 Here the sample is assembled and annotated on its own, and only then are its genes compared
 with the reference — instead of assembling it on the reference baits as in route 1. Use it when
 you want genes that are not limited to the reference baits (the sample's own assembly and
 annotation), or when the sample is too divergent for the baits.
 
-The three steps are separable: if you already have an assembly, put it at
-`out-denovo/<species>/final.contigs.fa` and start at step 2 (annotation); if you already have
-gene models, write the proteins to `out-denovo/<species>/<species>.pep` (ids `<species>|g…`),
-link them into `out-denovo/orthofinder-in/<species>.fasta`, and start at step 3 (OrthoFinder). A `HybSeq` sample is processed like any other, but its reads cover
-only the captured genes, so its assembly — and everything downstream — is limited to them.
+The three steps are separable:
+
+- have an assembly → put it at `out-denovo/<species>/final.contigs.fa`, start at step 2;
+- have gene models → write `out-denovo/<species>/<species>.pep` (ids `<species>|g…`), symlink it
+  into `out-denovo/orthofinder-in/<species>.fasta`, start at step 3.
+
+A `HybSeq` sample is treated like any other, but its reads cover only the captured genes, so its
+assembly — and everything downstream — is limited to them.
 
 **Step 1 — assembly.**
 
@@ -467,16 +440,13 @@ soi-wgdi orthomap pre-study/merged.alignment.csv out-denovo/orthofinder-in/Ortho
 	out=out-denovo/$ref-orthomap.alignment.csv prefix=out-denovo/$ref-orthomap
 ```
 
-It also writes `<prefix>.orthomap.tsv`, the audit table: one row per attempted assignment, with
-`status` (assigned / gene already used / cell already taken) and `kind` (`unique` = the sample
-gene is orthologous to **one** reference copy; `same`/`conflict` = to several, so the copy is
-decided by competition, ties randomly). The `unique` fraction is part of the result, not just a
-quality flag: a sample gene that is orthologous to several copies at once is a gene whose
-subgenome cannot be told apart, which is what a sample without the duplication looks like. Its
-counterpart is how many families carry **two** sample sequences (both sample columns filled in
-one row): many such families plus a high `unique` fraction = the sample keeps the copies
-separately; few such families = one sequence per family, and then no assignment can be unique.
-Read both numbers together with the tree.
+It also writes `<prefix>.orthomap.tsv`, the audit table: one row per attempted assignment with
+`status` (assigned / gene already used / cell already taken) and `kind` — `unique` = the sample
+gene is orthologous to **one** reference copy, `same`/`conflict` = to several, so the cell is
+decided by competition and ties by chance. The `unique` fraction is a result, not a quality flag:
+a gene orthologous to both copies has no subgenome to be assigned to, which is what a sample
+without the duplication looks like. Read it together with the number of families holding **two**
+sample sequences (both sample columns filled in one row) and with the tree.
 
 **Step 5 — subgenome tree.** The same three commands as route 1 step 4, on the orthomap
 matrix; here the sample genes come from the de novo gene models, and every column except the
@@ -491,7 +461,7 @@ awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep'
 	pre-study/pep.faa > out-denovo/$ref-tree.pep.faa
 cat $(ls out-denovo/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> out-denovo/$ref-tree.pep.faa
 
-soi-wgdi genetrees $aln $cols out-denovo/$ref-tree.pep.faa out-denovo/$ref-tree.pep.faa \
+soi-wgdi genetrees $aln out-denovo/$ref-tree.pep.faa \
 	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
 	outdir=out-denovo/$ref-subgenome.tmp \
 	genetrees=out-denovo/$ref-subgenome.genetrees alignments=out-denovo/$ref-subgenome.alignments
@@ -509,7 +479,7 @@ iqtree2 -redo -s out-denovo/$ref-subgenome.alignments.trimal \
 
 
 
-### Outputs ###
+## Outputs
 
 The two routes produce files with the same names (`<reference>-subgenome.*`), so they write to
 different directories: route 1 to `out-refguided/`, route 2 to `out-denovo/`. Mixing them in one
@@ -543,12 +513,12 @@ orthofinder-in/OrthoFinder/Results_*/            orthology
 Trees are plain Newick. For figures use your own viewer (e.g.
 [PhyTop](https://github.com/zhangrengang/phytop) or FigTree).
 
-### The example data ###
+## The example data
 
 `species.design` and `pre-study/` are a small real example: 300 gene families of the reference
 *Reevesia pubescens* (its two subgenomes `_R` and `_H`), and two samples — *Triplochiton
-scleroxylon* (`SRR34069007`, WGS, 5.9 GB) and *Ungeria floribunda* (`ERR7599640`, target
-capture, 0.3 GB) — whose full runs are downloaded in step 0:
+scleroxylon* (`SRR34069007`, WGS, 7.2 + 6.7 Gb of sequence, ~5.9 GB on disk) and
+*Ungeria floribunda* (`ERR7599640`, target capture, 0.3 Gb) — whose full runs are downloaded in step 0:
 
 ```
 bash src/get_reads.sh species.design reads 4
@@ -568,24 +538,20 @@ Measured with `bash pipeline-refguided.sh` on the full design (594 baits = 297 f
 | gene trees in the subgenome tree | 143 | 293 |
 | topology | `(Ref_R, Ung_R)` and `(Ref_H, Ung_H)`, both pp = 1.000 | `(Tri_R, Tri_H)`, pp = 1.000, attached to one reference subgenome |
 
-The two samples behave differently in exactly the way this pipeline is meant to show: *Ungeria*
-resolves into the two reference subgenomes, *Triplochiton* keeps its two copies together. The
-combined tree of the same run:
+*Ungeria* resolves into the two reference subgenomes, *Triplochiton* keeps its copies together —
+the two behaviours this pipeline is meant to separate. The combined tree of the same run:
 
 ```
 (((Reevesia_R,Ungeria_R)1.000,((Triplochiton_R,Triplochiton_H)1.000,
    (Ungeria_H,Reevesia_H)1.000)1.000),Theobroma_cacao);
 ```
 
-Route 2 on the same sample (assembled and annotated on its own): 50 gene models, 36 gene trees,
-and of the 43 matrix cells filled for the sample only 6 families carry **both** copies (R 20,
-H 23 filled cells); the audit table has 10 `unique` and 70 `conflict` links. With mostly one
-sequence per family there is nothing to assign uniquely, and the tree puts the two sample copies
-as sisters next to one reference subgenome — the capture library does not separate the homeologs,
-so this run says nothing about the duplication either way. The two counts (filled cells per
-copy, families with both) are what decides whether a route 2 tree can be read at all.
+Route 2 on the same sample: 50 gene models, 36 gene trees, 43 filled cells (R 20 / H 23) of which
+only 6 families carry both copies; the audit table has 10 `unique` and 70 `conflict` links. One
+sequence per family leaves nothing to assign uniquely, and the tree puts the two sample copies as
+sisters, so this run cannot answer the question — see FAQ 4.
 
-### FAQ ###
+## FAQ
 
 1. **The design file has no header and no comments.** A comment line would be read as a
    sample, and rows are read by position. Four TAB separated columns, as above.
@@ -604,8 +570,8 @@ copy, families with both) are what decides whether a route 2 tree can be read at
    if most families hold a single sequence, no assignment can be unique; if many hold two and
    still assign at random, the evidence is too thin (more families, a closer reference) and
    route 1 is the way to go.
-5. **Re-running.** Nothing is checkpointed: every step overwrites its outputs. Delete `out-refguided/`
-   (or `out-denovo/`) for a clean run.
+5. **Re-running.** Neither pipeline checkpoints: steps overwrite their outputs (HybPiper itself
+   skips genes it has already finished). Delete `out-refguided/` or `out-denovo/` for a clean run.
 6. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
    `<prefix>-subgenome.tmp` by the chromosome of the reference genes in
    `all_species_gene.gff`; each part can be passed to `astral-hybrid` separately.
