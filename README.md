@@ -106,7 +106,7 @@ The reference side is the directory `pre-study/`:
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
 
-How this matrix and the other `pre-study/` files are built:
+How `merged.alignment.csv` is produced:
 https://github.com/zhangrengang/subgenome_phasing_example
 
 col3 is not a free label — it is the **prefix of the copy columns in `rename.list`**: the copies
