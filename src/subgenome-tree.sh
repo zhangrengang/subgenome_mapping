@@ -2,8 +2,9 @@
 # Subgenome tree: gene trees -> ASTRAL-hybrid species tree -> ML tree
 #
 # usage:
-#   bash src/subgenome-tree.sh <alignment.csv> <rename.list> <pep.fa> <cds.fa> \
+#   bash src/subgenome-tree.sh <alignment.csv> <rename.list> <pep.fa> [<cds.fa>] \
 #        <outprefix> <indice> [root] [max_missing] [ncpu] [tree_from]
+#   (cds.fa is only read when tree_from=cds; pass anything, e.g. the pep, otherwise)
 #
 #   alignment.csv : matrix whose columns are subgenome copies (one row per gene family)
 #   rename.list   : column-name table of that matrix (1-based index <TAB> name)
@@ -44,11 +45,7 @@ esac
 [ -s "$aln" ]      || { echo "ERROR: no alignment file $aln"; exit 1; }
 [ -s "$colnames" ] || { echo "ERROR: no colnames file $colnames"; exit 1; }
 [ -s "$pep" ]      || { echo "ERROR: no pep file $pep"; exit 1; }
-if [ "$tree_from" = "cds" ]; then
-	[ -s "$cds" ] || { echo "ERROR: no cds file $cds (tree_from=cds needs codons)"; exit 1; }
-else
-	[ -s "$cds" ] || cds=$pep      # protein trees do not read the CDS; any file will do
-fi
+[ "$tree_from" = "cds" ] && { [ -s "$cds" ] || { echo "ERROR: no cds file $cds (tree_from=cds needs codons)"; exit 1; }; }
 
 tmpd=${pre}.tmp
 mkdir -p "$tmpd"
@@ -59,8 +56,14 @@ kargs="$kargs outdir=$tmpd genetrees=${pre}.genetrees alignments=${pre}.alignmen
 ##########################################################################
 ##### 1. gene trees (mafft -> trimal -> iqtree, inside soi-wgdi) ##########
 ##########################################################################
-echo "== soi-wgdi genetrees $aln $pep $cds $kargs"
-soi-wgdi genetrees "$aln" "$pep" "$cds" $kargs
+if [ "$tree_from" = "pep" ]; then
+	echo "== soi-wgdi genetrees $aln $pep $kargs"
+	soi-wgdi genetrees "$aln" "$pep" $kargs
+else
+	[ -s "$cds" ] || { echo "ERROR: tree_from=cds needs the CDS fasta"; exit 1; }
+	echo "== soi-wgdi genetrees $aln $pep $cds $kargs"
+	soi-wgdi genetrees "$aln" "$pep" "$cds" $kargs
+fi
 [ -s "${pre}.genetrees" ] || { echo "ERROR: no ${pre}.genetrees"; exit 1; }
 echo "   gene trees: $(grep -c . ${pre}.genetrees)"
 
