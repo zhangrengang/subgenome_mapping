@@ -106,10 +106,7 @@ The reference side is the directory `pre-study/`:
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
 
-`merged.alignment.csv` is not produced by this pipeline. It is built in the separate
-subgenome-phasing pipeline — DIAMOND homolog search → `wgdi -icl/-c/-bi/-km` (synteny, Ks,
-karyotype transfer) → manual subgenome assignment → `wgdi -pc/-a` → the per-pair
-`alignment.csv` files pasted together — and then read by `wgdi -at`:
+How this matrix and the other `pre-study/` files are built:
 https://github.com/zhangrengang/subgenome_phasing_example
 
 col3 is not a free label — it is the **prefix of the copy columns in `rename.list`**: the copies
