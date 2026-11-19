@@ -101,7 +101,7 @@ The reference side is the directory `pre-study/`:
 
 | file | content |
 |---|---|
-| `merged.alignment.csv` | subgenome-assigned matrix that `wgdi -at` reads (`alignment = ` in its conf): one row per gene family, one **column per subgenome copy**, a cell = gene id or empty |
+| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -a`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty |
 | `rename.list` | column names of that matrix, line *n* = column *n*, name = the second field (the first is just a running number) |
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
