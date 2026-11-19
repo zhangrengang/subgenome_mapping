@@ -86,8 +86,10 @@ do
 	##### 4. subgenome tree of this sample ###########################
 	##################################################################
 	echo "== 4) subgenome tree: $sp x $ref"
+	# 物种 = 列名去掉末尾 _<subgenome>；不能按 ^<sp>_ 前缀判，物种名本身含 _，
+	# 一个物种是另一个的前缀时（Reevesia_pubescens / Reevesia_pubescens_laxa、X / X_1）会吞列
 	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" '
-		{ n=$2; if (n ~ ("^" r "_") || n ~ ("^" s "_") || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
+		{ n=$2; sp=n; sub(/_[^_]*$/,"",sp); if (sp == r || sp == s || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
 		' $out/$sp.$ref-appended.rename.list)
 	echo "   columns: $ind"
 	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$sp.$ref-tree.pep.faa
