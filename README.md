@@ -101,13 +101,10 @@ The reference side is the directory `pre-study/`:
 
 | file | content |
 |---|---|
-| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -a`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty |
+| `merged.alignment.csv` | subgenome-assigned matrix, the output format of `wgdi -a`: one row per gene family, one **column per subgenome copy**, a cell = gene id or empty; how it is produced: https://github.com/zhangrengang/subgenome_phasing_example |
 | `rename.list` | column names of that matrix, line *n* = column *n*, name = the second field (the first is just a running number) |
 | `pep.faa` / `cds.fa` | proteins / CDS of every gene id that appears in the matrix |
 | `all_species_gene.gff` | `contig  gene  start  end  strand` — only needed to split trees by chromosome |
-
-How `merged.alignment.csv` is produced:
-https://github.com/zhangrengang/subgenome_phasing_example
 
 col3 is not a free label — it is the **prefix of the copy columns in `rename.list`**: the copies
 of a reference are the columns named `<col3>_<subgenome>` (the last `_` splits species from
