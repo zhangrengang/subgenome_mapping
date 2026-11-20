@@ -666,4 +666,6 @@ soi-wgdi chrsplit <alignment.csv> <all_species_gene.gff> <reference species> [op
 | `prefix=` | none | writes `<prefix>.<chrom>.genetrees` + `.alignments` |
 | `colnames=` | required | must be the same matrix/colnames the `genetrees` run used, or the ids will not match |
 
-The old order (`chrsplit <alignment.csv> <tmpdir> <gff> <refsp>`) still parses.
+It finds the per-family files by the matrix row id genetrees used (`XG<i>`), so both `tree_from`
+modes work (`XG<i>.pep.aln.trimal*` or `XG<i>.cds.aln.trimal*`). The old order
+(`chrsplit <alignment.csv> <tmpdir> <gff> <refsp>`) still parses.
