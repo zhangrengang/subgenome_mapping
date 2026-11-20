@@ -657,12 +657,13 @@ soi-wgdi orthomap <alignment.csv> <OrthoFinder Results dir> [options]
 **chrsplit** — split/merge the gene trees per reference chromosome (optional).
 
 ```
-soi-wgdi chrsplit <alignment.csv> <tmpdir> <all_species_gene.gff> <ref species> [options]
+soi-wgdi chrsplit <alignment.csv> <all_species_gene.gff> <reference species> [options]
 ```
 
 | option | default | meaning |
 |---|---|---|
-| `prefix=` | required in practice | writes `<prefix>.<chrom>.genetrees` + `.alignments` |
+| `tmpdir=` | `<prefix>.tmp`, or `./tmp` without a prefix | the directory `genetrees` wrote its per-family files to |
+| `prefix=` | none | writes `<prefix>.<chrom>.genetrees` + `.alignments` |
 | `colnames=` | required | must be the same matrix/colnames the `genetrees` run used, or the ids will not match |
 
-`tmpdir` is the directory `genetrees` wrote its per-family files to.
+The old order (`chrsplit <alignment.csv> <tmpdir> <gff> <refsp>`) still parses.
