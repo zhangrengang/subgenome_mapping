@@ -9,6 +9,7 @@
    * [Outputs](#outputs)
    * [The example data](#the-example-data)
    * [FAQ](#faq)
+   * [soi-wgdi subcommands](#soi-wgdi-subcommands)
 
 ## What it does
 
@@ -575,3 +576,93 @@ sisters, so this run cannot answer the question — see FAQ 4.
 6. **Trees per chromosome.** `soi-wgdi chrsplit` splits the gene trees of
    `<prefix>-subgenome.tmp` by the chromosome of the reference genes in
    `all_species_gene.gff`; each part can be passed to `astral-hybrid` separately.
+
+## soi-wgdi subcommands
+
+Every call has the same shape — matrix first, then that subcommand's positional arguments, then
+`key=value` options. An argument containing `=` is an option, so only the positional order
+matters; `indice` counts from 1 and is the matrix column number, not the copy label.
+
+```
+soi-wgdi <subcommand> <alignment.csv> <positional ...> key=value ...
+```
+
+Only the five subcommands this repository calls are listed below; `soi-wgdi --help` and the
+[SOI](https://github.com/zhangrengang/SOI) README cover the rest.
+
+**compmap** — competitive mapping of reads against the reference copies.
+
+```
+soi-wgdi compmap <alignment.csv> <cds.fa> <read1.fq.gz> [<read2.fq.gz>] [options]
+```
+
+| option | default | meaning |
+|---|---|---|
+| `ref=` | required | reference species; its copy columns must be `<ref>_<copy>` |
+| `prefix=` | stdout | writes `<prefix>.bait.fa/.bam/.kept.ids/.depth.tsv/.depth.pdf/.target.cds` |
+| `all_genes=` | 0 | 0 = only genes whose every copy is present (bam, depth and target.cds alike); 1 = all genes |
+| `min_frac=` | 1.0 | how many copies must be present: 1.0 = all, 0.8 = 4 of 5 |
+| `ncpu=` | 8 | bwa/samtools threads |
+| `title=` | none | title of the depth pdf (no title when omitted) |
+| `copy_sep=` | `_` | separator between species and copy in the column names |
+
+**baitmap** — append the assembled copies as new columns (`append_cols` is the old name).
+
+```
+soi-wgdi baitmap <alignment.csv> <seqfile .cds|.pep> <sample id> [options]
+```
+
+| option | default | meaning |
+|---|---|---|
+| `prefix=` | csv to stdout, no rename.list | writes `<prefix>.alignment.csv` + `<prefix>.rename.list` |
+| `copy_sep=` | `_` | the copy is the part after the last separator in the ref column name |
+
+Sequence ids must be `<sample>-<colnum>_XG<row>`, i.e. the bait ids `compmap` wrote.
+
+**genetrees** — one gene tree per family, plus the concatenation.
+
+```
+soi-wgdi genetrees <alignment.csv> <pep.fa> [<cds.fa>] [options]
+```
+
+| option | default | meaning |
+|---|---|---|
+| `colnames=` | none — tips then come from the species part of the gene ids | `rename.list`; its column names become the tree tips |
+| `indice=` | all columns | comma-separated 1-based columns to keep |
+| `max_missing=` | 0.5 | drop families missing more than this fraction of taxa |
+| `tree_from=` | `cds` | `pep` = protein alignment, iqtree `-mset JTT`; `cds` = pal2nal codon alignment, `-mset GTR` |
+| `outdir=` | `genetrees` | per-family alignments and trees (the `.tmp` directory) |
+| `genetrees=` | `sg.genetrees` | output gene trees, one Newick per line |
+| `alignments=` | `sg.alignments` | concatenated alignment of the same families |
+| `prefix=` | none | shorthand: sets the two above to `<prefix>.genetrees` / `.alignments` |
+| `ncpu=` | 50 | parallel families |
+
+`cds.fa` is only read when `tree_from=cds`; with `tree_from=pep` it can be omitted.
+
+**orthomap** — fill the sample columns from orthology instead of from reads.
+
+```
+soi-wgdi orthomap <alignment.csv> <OrthoFinder Results dir> [options]
+```
+
+| option | default | meaning |
+|---|---|---|
+| `ref=` | required | reference species of this matrix (one matrix = one reference) |
+| `design=` | none | `species.design`; only its rows with col3 == `ref`, and only species that have no column yet |
+| `colnames=` | required | `rename.list` of that matrix |
+| `out=` | `<alignment>-orthomap.csv` | output matrix |
+| `prefix=` | `out` without `.csv` | side outputs: `<prefix>.rename.list`, `<prefix>.orthomap.tsv` |
+| `all_genes=` | 0 | 0 = only rows where every ref copy is present; 1 = all rows |
+
+**chrsplit** — split/merge the gene trees per reference chromosome (optional).
+
+```
+soi-wgdi chrsplit <alignment.csv> <tmpdir> <all_species_gene.gff> <ref species> [options]
+```
+
+| option | default | meaning |
+|---|---|---|
+| `prefix=` | required in practice | writes `<prefix>.<chrom>.genetrees` + `.alignments` |
+| `colnames=` | required | must be the same matrix/colnames the `genetrees` run used, or the ids will not match |
+
+`tmpdir` is the directory `genetrees` wrote its per-family files to.
