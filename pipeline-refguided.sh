@@ -32,7 +32,7 @@ py=${PYTHON:-python}
 mkdir -p $out
 
 ##########################################################################
-##### per sample: map, assemble, append, tree ############################
+##### per sample: map, assemble; then one matrix + one tree ##############
 ##########################################################################
 while read -r sample sp ref dtype
 do
@@ -77,41 +77,50 @@ do
 done < $design
 
 ##########################################################################
-##### one tree per reference: every sample of that reference together ####
+##### 3. one matrix: baitmap every sample (whatever its reference) ######
 ##########################################################################
-ref=$(awk '{print $3}' $design | sort -u)
-[ $(echo "$ref" | wc -l) -eq 1 ] || { echo "ERROR: $(echo "$ref" | wc -l) references in $design; the matrix is one reference, split the design"; exit 1; }
-ns=$(awk -v r="$ref" '$3 == r' $design | wc -l)
+# 一个 design 可以有多个参考：样本各按自己的参考竞争比对，列全部追加进同一个矩阵，
+# 最后只建一棵树（与 orthomap 那套一致），不按参考分组
+refs=$(awk '{print $3}' $design | sort -u | tr '\n' ' ')
+tag=$(echo $refs | tr ' ' '+')          # 单参考时就是 <ref>，多参考是 <ref1>+<ref2>
+ns=$(awk 'NF' $design | wc -l)
 echo
-echo "########## subgenome tree: $ref ($ns sample(s)) ##########"
+echo "########## subgenome tree: $refs ($ns sample(s)) ##########"
 aln=$pre/merged.alignment.csv
 cols=$pre/rename.list
 k=0
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
+for sp in $(awk '{print $2}' $design)
 do
 	k=$((k+1))
+	# 每个样本自己的参考：不要依赖上一个 while 循环残留的 $ref（多参考时会串台、也会变空）
+	ref=$(awk -v s="$sp" '$2 == s {print $3; exit}' $design)
 	if [ $k -eq "$ns" ]; then
-		ocsv=$out/$ref-combined.alignment.csv
-		ocol=$out/$ref-combined.rename.list
+		ocsv=$out/$tag-combined.alignment.csv
+		ocol=$out/$tag-combined.rename.list
 	else
-		ocsv=$out/$ref.pass$k.alignment.csv
-		ocol=$out/$ref.pass$k.rename.list
+		ocsv=$out/$tag.pass$k.alignment.csv
+		ocol=$out/$tag.pass$k.rename.list
 	fi
 	soi-wgdi baitmap $aln $out/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
 	aln=$ocsv
 	cols=$ocol
 done
-rm -f $out/$ref.pass*.alignment.csv $out/$ref.pass*.rename.list
+rm -f $out/$tag.pass*.alignment.csv $out/$tag.pass*.rename.list
+##########################################################################
+##### 4. subgenome tree (all samples, one tree) #########################
+##########################################################################
 ind=$(seq -s, 2 $(wc -l < $cols))
 echo "   columns: $ind"
-awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
+# pep: 参考蛋白（多参考时用 A|B 交替匹配）+ 外类群 + 每个样本自己的 pep
+refre=$(echo $refs | tr ' ' '|')
+awk -v r="$refre" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$tag-tree.pep.faa
+for sp in $(awk '{print $2}' $design)
 do
-	cat $out/$sp.$ref.pep >> $out/$ref-tree.pep.faa
+	cat $out/$sp.$ref.pep >> $out/$tag-tree.pep.faa
 done
-bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
-	$out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
-	$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
+bash src/subgenome-tree.sh $out/$tag-combined.alignment.csv $cols \
+	$out/$tag-tree.pep.faa $out/$tag-tree.pep.faa \
+	$out/$tag-subgenome "$ind" $outgroup 0.5 $ncpu pep
 
 echo
 echo "ALL DONE"
