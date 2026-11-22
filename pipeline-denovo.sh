@@ -81,12 +81,15 @@ done < $design
 ##### 3. orthology: reference copies vs sample genes ####################
 ##########################################################################
 echo "########## OrthoFinder ##########"
-# one matrix = one reference species; a design mixing references has to be split
-nref=$(awk '{print $3}' $design | sort -u | wc -l)
-[ "$nref" -eq 1 ] || { echo "ERROR: $nref references in $design but the matrix is one reference; split the design"; exit 1; }
-ref=$(awk '{print $3}' $design | sort -u)
+# a design may list samples of several references, as long as the matrix holds the copy
+# columns of each of them: they all go into one matrix and one tree (no split by reference)
+refs=$(awk '{print $3}' $design | sort -u | tr '\n' ' ')
+refre=$(echo $refs | tr ' ' '|')
+tag=$(echo $refs | tr ' ' '+')          # one reference: <ref>; several: <ref1>+<ref2>
 mkdir -p $out/orthofinder-in
-awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$ref.fasta
+for r in $refs; do
+	awk -v r="$r" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$r.fasta
+done
 awk -v o="$outgroup" '/^>/{keep=($0 ~ ("^>" o "\\|"))} keep' $pre/pep.faa > $out/orthofinder-in/$outgroup.fasta
 orthofinder -f $out/orthofinder-in -t $ncpu
 
@@ -102,22 +105,23 @@ echo "########## orthomap ##########"
 ##################################################################
 soi-wgdi orthomap $pre/merged.alignment.csv $out/orthofinder-in/OrthoFinder/Results_* \
 	design=$design colnames=$pre/rename.list \
-	out=$out/$ref-orthomap.alignment.csv prefix=$out/$ref-orthomap
+	out=$out/$tag-orthomap.alignment.csv prefix=$out/$tag-orthomap
 
 ##########################################################################
 ##### 5. subgenome tree #################################################
 ##########################################################################
-echo "########## subgenome tree: $ref ##########"
-aln=$out/$ref-orthomap.alignment.csv
-cols=$out/$ref-orthomap.rename.list
+ns=$(awk 'NF' $design | wc -l)
+echo "########## subgenome tree: $refs ($ns sample(s)) ##########"
+aln=$out/$tag-orthomap.alignment.csv
+cols=$out/$tag-orthomap.rename.list
 # every column except the first (the anchor P_MK) enters the tree:
 # reference copies + outgroup + all sample columns
 ind=$(seq -s, 2 $(wc -l < $cols))
 echo "   columns: $ind"
-awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-cat $(ls $out/orthofinder-in/*.fasta | grep -vE "/($ref|$outgroup)\.fasta$") >> $out/$ref-tree.pep.faa
-bash src/subgenome-tree.sh $aln $cols $out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
-	$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
+awk -v r="$refre" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$tag-tree.pep.faa
+cat $(ls $out/orthofinder-in/*.fasta | grep -vE "/($refre|$outgroup)\.fasta$") >> $out/$tag-tree.pep.faa
+bash src/subgenome-tree.sh $aln $cols $out/$tag-tree.pep.faa $out/$tag-tree.pep.faa \
+	$out/$tag-subgenome "$ind" $outgroup 0.5 $ncpu pep
 
 echo
 echo "ALL DONE"
