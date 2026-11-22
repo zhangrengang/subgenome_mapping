@@ -299,75 +299,78 @@ unchanged, so `src/retrieve_copies.py` reads it as is. It is not the path these 
 from: 2.x wants python ≥3.9, `progressbar`, `pebble`, BBTools and exonerate 2.4.0 specifically,
 and on this machine it stopped at that dependency check.
 
-**Step 3 — `baitmap`: put the sample into the matrix.** One column per copy of the reference; a cell is
-filled only where the sample has a sequence for that gene family and that copy:
+**Step 3 — `baitmap` every sample, then one tree per reference.** There is no per-sample tree:
+the samples of a reference go into the same matrix and are built into one tree (route 2 does the
+same — one matrix, all samples). `baitmap` appends one column per copy of the reference, sample
+after sample, carrying the previous matrix forward:
 
 ```
-while read -r run sp ref dtype; do
-	soi-wgdi baitmap pre-study/merged.alignment.csv out-refguided/$sp.$ref.cds $sp \
-		colnames=pre-study/rename.list prefix=out-refguided/$sp.$ref-appended
-done < species.design
+ref=$(awk '{print $3}' species.design | sort -u)      # one matrix = one reference
+ns=$(awk -v r="$ref" '$3 == r' species.design | wc -l)
+aln=pre-study/merged.alignment.csv
+cols=pre-study/rename.list
+k=0
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+	k=$((k+1))
+	if [ $k -eq "$ns" ]; then
+		ocsv=out-refguided/$ref-combined.alignment.csv
+		ocol=out-refguided/$ref-combined.rename.list
+	else
+		ocsv=out-refguided/$ref.pass$k.alignment.csv
+		ocol=out-refguided/$ref.pass$k.rename.list
+	fi
+	soi-wgdi baitmap $aln out-refguided/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
+	aln=$ocsv
+	cols=$ocol
+done
+rm -f out-refguided/$ref.pass*
 ```
 
 No `ref=` is needed: `compmap` wrote every bait id as `<ref>-<column>_XG<row>`, so `baitmap` takes
 the part after the last `-` — `<column>_XG<row>` — and puts the sequence into row *row* of the new
 column built from `rename.list` line *column*. The reference is in the ids, not in this call.
 
-Outputs `out-refguided/$sp.$ref-appended.alignment.csv` and `.rename.list`: the reference matrix plus
-`<species>_<subgenome>` columns, named after the copies of the reference.
-
-**Step 4 — subgenome tree, one per sample.** Step 3 produces one appended matrix per sample, so
-each sample gets its own tree; the loop is over the design for that reason (the combined tree
-with all samples of the reference comes afterwards, in `pipeline-refguided.sh`). Only the columns
-of this reference, of this sample and of the outgroup enter the tree: gene trees per family from
-the proteins, ASTRAL-hybrid on those gene trees, and an ML tree on the concatenation as a
-cross-check. All of it is written out below, no wrapper:
+The tree then uses every column except the first (the anchor), and the pep of the reference, the
+outgroup and every sample:
 
 ```
-while read -r run sp ref dtype; do
-	# a column's species = its name without the last _<subgenome>; ids contain _ themselves, so a
-	# ^<species>_ prefix test would also take Reevesia_pubescens_laxa_R or X_1 columns
-	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" \
-		'{n=$2; sp=n; sub(/_[^_]*$/,"",sp); if (sp == r || sp == s || n == o) printf "%s%s", (k++ ? "," : ""), $1}' \
-		out-refguided/$sp.$ref-appended.rename.list)
+ind=$(seq -s, 2 $(wc -l < $cols))
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
+	pre-study/pep.faa > out-refguided/$ref-tree.pep.faa
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' species.design); do
+	cat out-refguided/$sp.$ref.pep >> out-refguided/$ref-tree.pep.faa
+done
 
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' \
-		pre-study/pep.faa > out-refguided/$sp.$ref-tree.pep.faa
-	cat out-refguided/$sp.$ref.pep >> out-refguided/$sp.$ref-tree.pep.faa
+# 3a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
+soi-wgdi genetrees out-refguided/$ref-combined.alignment.csv out-refguided/$ref-tree.pep.faa \
+	colnames=$cols indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
+	outdir=out-refguided/$ref-subgenome.tmp \
+	genetrees=out-refguided/$ref-subgenome.genetrees alignments=out-refguided/$ref-subgenome.alignments
 
-	# 4a. one gene tree per family (mafft -> trimal -> iqtree), plus the concatenation
-	soi-wgdi genetrees out-refguided/$sp.$ref-appended.alignment.csv out-refguided/$sp.$ref-tree.pep.faa \
-		colnames=out-refguided/$sp.$ref-appended.rename.list \
-		indice=$ind max_missing=0.5 ncpu=$ncpu tree_from=pep \
-		outdir=out-refguided/$sp.$ref-subgenome.tmp \
-		genetrees=out-refguided/$sp.$ref-subgenome.genetrees alignments=out-refguided/$sp.$ref-subgenome.alignments
+# 3b. species tree from the gene trees
+astral-hybrid --root $outgroup -t 8 -i out-refguided/$ref-subgenome.genetrees \
+	> out-refguided/$ref-subgenome.astral-hyb
 
-	# 4b. species tree from the gene trees
-	astral-hybrid --root $outgroup -t 8 -i out-refguided/$sp.$ref-subgenome.genetrees \
-		> out-refguided/$sp.$ref-subgenome.astral-hyb
-
-	# 4c. ML tree on the concatenation (gappyout first). fasttree and iqtree answer the
-	#     same question from the same alignment -- run ONE of them: fasttree takes minutes,
-	#     iqtree with 1000 ultrafast bootstraps is the one to report
-	trimal -in out-refguided/$sp.$ref-subgenome.alignments -gappyout \
-		> out-refguided/$sp.$ref-subgenome.alignments.trimal
-	#   iqtree (default in src/subgenome-tree.sh, MLTREE=iqtree):
-	iqtree2 -redo -s out-refguided/$sp.$ref-subgenome.alignments.trimal \
-		-mset JTT -B 1000 -T $ncpu -o $outgroup \
-		-pre out-refguided/$sp.$ref-subgenome.alignments.trimal.iqtree
-	#   ... or fasttree instead (MLTREE=fasttree):
-	#   fasttree out-refguided/$sp.$ref-subgenome.alignments.trimal \
-	#	| nw_reroot - $outgroup > out-refguided/$sp.$ref-subgenome.alignments.trimal.fasttree
-done < species.design
+# 3c. ML tree on the concatenation (gappyout first). fasttree and iqtree answer the
+#     same question from the same alignment -- run ONE of them
+trimal -in out-refguided/$ref-subgenome.alignments -gappyout \
+	> out-refguided/$ref-subgenome.alignments.trimal
+#   iqtree (default in src/subgenome-tree.sh, MLTREE=iqtree):
+iqtree2 -redo -s out-refguided/$ref-subgenome.alignments.trimal \
+	-mset JTT -B 1000 -T $ncpu -o $outgroup \
+	-pre out-refguided/$ref-subgenome.alignments.trimal.iqtree
+#   ... or fasttree instead (MLTREE=fasttree):
+#   fasttree out-refguided/$ref-subgenome.alignments.trimal \
+#	| nw_reroot - $outgroup > out-refguided/$ref-subgenome.alignments.trimal.fasttree
 ```
 
-What to look for: if the duplication is shared, the two copies of the sample are **not**
-sisters — each sits next to the corresponding reference subgenome. If they are sisters, the
-sample's copies do not resolve into the reference subgenomes.
+What to look for: if the duplication is shared, the copies of a sample are **not** sisters — each
+sits next to the corresponding reference subgenome. If they are sisters, that sample's copies do
+not resolve into the reference subgenomes.
 
-`pipeline-refguided.sh` is the four loops above plus one combined tree with every sample of the
-reference in it (`out-refguided/<reference>-subgenome.*`); it calls `src/subgenome-tree.sh`,
-which is exactly the 4a–4c block.
+`pipeline-refguided.sh` is the two per-sample loops above (compmap, HybPiper) plus this step; it
+calls `src/subgenome-tree.sh`, which is exactly the 3a–3c block. One sample is enough — the loop
+above degenerates to a single `baitmap`.
 
 ## Route 2: de novo
 
@@ -449,7 +452,7 @@ a gene orthologous to both copies has no subgenome to be assigned to, which is w
 without the duplication looks like. Read it together with the number of families holding **two**
 sample sequences (both sample columns filled in one row) and with the tree.
 
-**Step 5 — subgenome tree.** The same three commands as route 1 step 4, on the orthomap
+**Step 5 — subgenome tree.** The same three commands as route 1 step 3, on the orthomap
 matrix; here the sample genes come from the de novo gene models, and every column except the
 first (the anchor) goes into the tree:
 
@@ -491,12 +494,11 @@ Route 1, in `out-refguided/`:
 ```
 <species>.<reference>.depth.tsv/.depth.pdf       per-copy coverage of the reference genes
 <species>.<reference>.cds/.pep                   assembled copies of this sample
-<species>.<reference>-appended.*                 matrix with this sample's columns
-<species>.<reference>-subgenome.genetrees        one tree per gene family
-<species>.<reference>-subgenome.astral-hyb       ASTRAL-hybrid subgenome tree
-<species>.<reference>-subgenome.alignments*      protein concatenation (+ .trimal.iqtree.treefile,
+<reference>-combined.alignment.csv/.rename.list  matrix with the columns of every sample
+<reference>-subgenome.genetrees                  one tree per gene family
+<reference>-subgenome.astral-hyb                 ASTRAL-hybrid subgenome tree
+<reference>-subgenome.alignments*                protein concatenation (+ .trimal.iqtree.treefile,
                                                 or .trimal.fasttree if MLTREE=fasttree)
-<reference>-subgenome.*                          the same trees for all samples of this reference
 ```
 
 Route 2, in `out-denovo/`:
