@@ -74,29 +74,6 @@ do
 	python3 src/retrieve_copies.py $out/$sp.$ref
 	echo "   assemblies: $(grep -c '^>' $out/$sp.$ref.pep)"
 
-	##################################################################
-	##### 3. append the sample as new columns ########################
-	# one column per copy of the reference: <species_id>_<copy>
-	##################################################################
-	echo "== 3) baitmap: $sp -> new columns"
-	soi-wgdi baitmap $pre/merged.alignment.csv $out/$sp.$ref.cds $sp \
-		colnames=$pre/rename.list prefix=$out/$sp.$ref-appended
-
-	##################################################################
-	##### 4. subgenome tree of this sample ###########################
-	##################################################################
-	echo "== 4) subgenome tree: $sp x $ref"
-	# 物种 = 列名去掉末尾 _<subgenome>；不能按 ^<sp>_ 前缀判，物种名本身含 _，
-	# 一个物种是另一个的前缀时（Reevesia_pubescens / Reevesia_pubescens_laxa、X / X_1）会吞列
-	ind=$(awk -F'\t' -v r="$ref" -v s="$sp" -v o="$outgroup" '
-		{ n=$2; sp=n; sub(/_[^_]*$/,"",sp); if (sp == r || sp == s || n == o) printf "%s%s", (k++ ? "," : ""), $1 }
-		' $out/$sp.$ref-appended.rename.list)
-	echo "   columns: $ind"
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$sp.$ref-tree.pep.faa
-	cat $out/$sp.$ref.pep >> $out/$sp.$ref-tree.pep.faa
-	bash src/subgenome-tree.sh $out/$sp.$ref-appended.alignment.csv $out/$sp.$ref-appended.rename.list \
-		$out/$sp.$ref-tree.pep.faa $out/$sp.$ref-tree.pep.faa \
-		$out/$sp.$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
 done < $design
 
 ##########################################################################
@@ -105,40 +82,36 @@ done < $design
 ref=$(awk '{print $3}' $design | sort -u)
 [ $(echo "$ref" | wc -l) -eq 1 ] || { echo "ERROR: $(echo "$ref" | wc -l) references in $design; the matrix is one reference, split the design"; exit 1; }
 ns=$(awk -v r="$ref" '$3 == r' $design | wc -l)
-if [ "$ns" -ge 2 ]; then
-	echo
-	echo "########## combined tree: $ref ##########"
-	aln=$pre/merged.alignment.csv
-	cols=$pre/rename.list
-	k=0
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-	do
-		k=$((k+1))
-		if [ $k -eq "$ns" ]; then
-			ocsv=$out/$ref-combined.alignment.csv
-			ocol=$out/$ref-combined.rename.list
-		else
-			ocsv=$out/$ref.pass$k.alignment.csv
-			ocol=$out/$ref.pass$k.rename.list
-		fi
-		soi-wgdi baitmap $aln $out/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
-		aln=$ocsv
-		cols=$ocol
-	done
-	rm -f $out/$ref.pass*.alignment.csv $out/$ref.pass*.rename.list
-	ind=$(seq -s, 2 $(wc -l < $cols))
-	echo "   columns: $ind"
-	awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
-	for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
-	do
-		cat $out/$sp.$ref.pep >> $out/$ref-tree.pep.faa
-	done
-	bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
-		$out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
-		$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
-else
-	echo "== combined tree: only $ns sample(s) for $ref, skipped"
-fi
+echo
+echo "########## subgenome tree: $ref ($ns sample(s)) ##########"
+aln=$pre/merged.alignment.csv
+cols=$pre/rename.list
+k=0
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
+do
+	k=$((k+1))
+	if [ $k -eq "$ns" ]; then
+		ocsv=$out/$ref-combined.alignment.csv
+		ocol=$out/$ref-combined.rename.list
+	else
+		ocsv=$out/$ref.pass$k.alignment.csv
+		ocol=$out/$ref.pass$k.rename.list
+	fi
+	soi-wgdi baitmap $aln $out/$sp.$ref.cds $sp colnames=$cols prefix=${ocsv%.alignment.csv}
+	aln=$ocsv
+	cols=$ocol
+done
+rm -f $out/$ref.pass*.alignment.csv $out/$ref.pass*.rename.list
+ind=$(seq -s, 2 $(wc -l < $cols))
+echo "   columns: $ind"
+awk -v r="$ref" -v o="$outgroup" '/^>/{keep=($0 ~ ("^>(" r "|" o ")\\|"))} keep' $pre/pep.faa > $out/$ref-tree.pep.faa
+for sp in $(awk -v r="$ref" '$3 == r {print $2}' $design)
+do
+	cat $out/$sp.$ref.pep >> $out/$ref-tree.pep.faa
+done
+bash src/subgenome-tree.sh $out/$ref-combined.alignment.csv $cols \
+	$out/$ref-tree.pep.faa $out/$ref-tree.pep.faa \
+	$out/$ref-subgenome "$ind" $outgroup 0.5 $ncpu pep
 
 echo
 echo "ALL DONE"
