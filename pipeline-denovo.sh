@@ -65,8 +65,11 @@ do
 	# are the ones that can be compared with the reference copies
 	##################################################################
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' $pre/pep.faa > $out/$ref.evidence.faa
+	# tcov 0.4 / max-intron 50 kb：碎片装配(HybSeq)上比默认 0.5 多回收约 1/3 的格子，
+	# 而完整数据(WGS)上几乎不变；实测内含子最长 10.7 kb，50 kb 足够且比 500 kb 更有约束
 	metaeuk easy-predict $out/$sp/final.contigs.fa $out/$ref.evidence.faa \
-		$out/$sp/$sp.metaeuk $out/$sp/tmp.metaeuk --max-intron 500000 --threads $ncpu
+		$out/$sp/$sp.metaeuk $out/$sp/tmp.metaeuk \
+		--max-intron 50000 --metaeuk-tcov 0.4 --threads $ncpu
 	##################################################################
 	##### renumber: protein and CDS share one id series ##############
 	##################################################################
