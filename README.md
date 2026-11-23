@@ -415,7 +415,8 @@ directory, one file per species named after the species:
 while read -r run sp ref dtype; do
 	awk -v r="$ref" '/^>/{keep=($0 ~ ("^>" r "\\|"))} keep' pre-study/pep.faa > out-denovo/$ref.evidence.faa
 	metaeuk easy-predict out-denovo/$sp/final.contigs.fa out-denovo/$ref.evidence.faa \
-		out-denovo/$sp/$sp.metaeuk out-denovo/$sp/tmp.metaeuk --max-intron 500000 --threads $ncpu
+		out-denovo/$sp/$sp.metaeuk out-denovo/$sp/tmp.metaeuk \
+		--max-intron 50000 --metaeuk-tcov 0.4 --threads $ncpu
 	mkdir -p out-denovo/orthofinder-in
 	awk -v p="$sp" '/^>/{n++; printf ">%s|g%06d\n", p, n; next} {print}' \
 		out-denovo/$sp/$sp.metaeuk.fas       > out-denovo/$sp/$sp.pep
